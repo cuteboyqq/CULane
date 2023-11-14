@@ -120,7 +120,7 @@ class BDD100K:
                 y = int(float(line.split(" ")[2])*img_h)
                 w = int(float(line.split(" ")[3])*img_w)
                 h = int(float(line.split(" ")[4])*img_h)
-                print(f"{la} {x} {y} {w} {h}")
+                #print(f"{la} {x} {y} {w} {h}")
 
                 if int(la)==2 and (y+0)<min:
                     print(f"y:{y} min:{min}")
@@ -133,7 +133,7 @@ class BDD100K:
         for i in range(len(im_path_list)):
             print(f"{i}:{im_path_list[i]}")
             drivable_path,lane_path,detection_path = self.parse_path(im_path_list[i])
-            print(f"drivable_path:{drivable_path}, \n lane_path:{lane_path}")
+            #print(f"drivable_path:{drivable_path}, \n lane_path:{lane_path}")
             
             img = cv2.imread(im_path_list[i])
             h,w = img.shape[0],img.shape[1]
@@ -142,16 +142,17 @@ class BDD100K:
 
             min_final_2 = self.Find_Min_Y_Among_All_Vehicle_Bounding_Boxes(min_final,detection_path,h,w)
 
-            if os.path.exists(lane_path):
-                print("lane_path exists!")
-            self.split_Image(im_path_list[i],min_final_2,i)
+            # if os.path.exists(lane_path):
+            #     print("lane_path exists!")
+            self.split_Image(im_path_list[i],min_final_2)
 
         return min_final_2
     
-    def split_Image(self,im_path,drivable_min_y,cnt):
+    def split_Image(self,im_path,drivable_min_y):
         tag = 0
         retval = 0
         if os.path.exists(im_path):
+            img_name = (im_path.split(os.sep)[-1]).split(".")[0]
             print(im_path)
             label=None
             y = int(drivable_min_y)
@@ -164,16 +165,20 @@ class BDD100K:
             print(f"split_y:{split_y}")
             if y>split_y:
                 split_vanish_crop_image = img[lower_bound:upper_bound,0:w-1]
-                cv2.imshow("split vanish area",split_vanish_crop_image)
-                cv2.waitKey(100)
-                input()
+                if self.show_imcrop:
+                    cv2.imshow("split vanish area",split_vanish_crop_image)
+                    cv2.waitKey(1)
+                #input()
                 if self.save_imcrop:
                     label = 0
                     save_dir = os.path.join(self.save_dir,str(label))
                     os.makedirs(save_dir,exist_ok=True)
-                    save_crop_im = str(cnt) + "_" + str(tag) + ".jpg"
+                    save_crop_im = img_name + "_" + str(tag) + ".jpg"
                     save_crop_im_path = os.path.join(save_dir,save_crop_im)
-                    cv2.imwrite(save_crop_im_path,split_vanish_crop_image)
+                    if not os.path.exists(save_crop_im_path):
+                        cv2.imwrite(save_crop_im_path,split_vanish_crop_image)
+                    else:
+                        print(f"file {img_name}_0.jpg exists")
                     tag=tag+1
             else:
                 print("y is too small~~")
@@ -192,9 +197,12 @@ class BDD100K:
                         label = 1
                         save_dir = os.path.join(self.save_dir,str(label))
                         os.makedirs(save_dir,exist_ok=True)
-                        save_crop_im = str(cnt) + "_" + str(tag) + ".jpg"
+                        save_crop_im = img_name + "_" + str(tag) + ".jpg"
                         save_crop_im_path = os.path.join(save_dir,save_crop_im)
-                        cv2.imwrite(save_crop_im_path,split_other_image)
+                        if not os.path.exists(save_crop_im_path):
+                            cv2.imwrite(save_crop_im_path,split_other_image)
+                        else:
+                            print(f"file {img_name}_{tag}.jpg exists")
                         tag=tag+1
                 y_t = upper_bound + split_y
                 while(y_t<(h-1) and y_t-split_y>0):
@@ -207,9 +215,12 @@ class BDD100K:
                         label = 1
                         save_dir = os.path.join(self.save_dir,str(label))
                         os.makedirs(save_dir,exist_ok=True)
-                        save_crop_im = str(cnt) + "_" + str(tag) + ".jpg"
+                        save_crop_im = img_name + "_" + str(tag) + ".jpg"
                         save_crop_im_path = os.path.join(save_dir,save_crop_im)
-                        cv2.imwrite(save_crop_im_path,split_other_image)
+                        if not os.path.exists(save_crop_im_path):
+                            cv2.imwrite(save_crop_im_path,split_other_image)
+                        else:
+                            print(f"file {img_name}_{tag}.jpg exists")
                         tag=tag+1
             
         return NotImplemented
