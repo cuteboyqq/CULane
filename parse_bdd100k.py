@@ -15,6 +15,7 @@ class BDD100K:
         self.split_width = args.split_width
         self.show_imcrop = args.show_imcrop
         self.save_imcrop = args.save_imcrop
+        self.multi_crop = args.multi_crop
 
     def parse_path(self,path,type="val"):
         file = path.split(os.sep)[-1]
@@ -151,6 +152,8 @@ class BDD100K:
     def split_Image(self,im_path,drivable_min_y):
         tag = 0
         retval = 0
+        lower_bound_basic = 0
+        upper_bound_basic = 0
         if os.path.exists(im_path):
             img_name = (im_path.split(os.sep)[-1]).split(".")[0]
             print(im_path)
@@ -160,33 +163,53 @@ class BDD100K:
             img = cv2.imread(im_path)
             split_y = int(img.shape[0] / self.split_num)
             h,w = img.shape[0],img.shape[1]
-            lower_bound = y-int(split_y/2.0)
-            upper_bound = y+int(split_y/2.0)
-            print(f"split_y:{split_y}")
-            if y>split_y:
-                split_vanish_crop_image = img[lower_bound:upper_bound,0:w-1]
-                if self.show_imcrop:
-                    cv2.imshow("split vanish area",split_vanish_crop_image)
-                    cv2.waitKey(1)
-                #input()
-                if self.save_imcrop:
-                    label = 0
-                    save_dir = os.path.join(self.save_dir,str(label))
-                    os.makedirs(save_dir,exist_ok=True)
-                    save_crop_im = img_name + "_" + str(tag) + ".jpg"
-                    save_crop_im_path = os.path.join(save_dir,save_crop_im)
-                    if not os.path.exists(save_crop_im_path):
-                        cv2.imwrite(save_crop_im_path,split_vanish_crop_image)
-                    else:
-                        print(f"file {img_name}_0.jpg exists")
-                    tag=tag+1
+            bound_list = []
+            if not self.multi_crop:
+                lower_bound_basic = y-int(split_y/2.0)
+                upper_bound_basic = y+int(split_y/2.0)
+                bound_list.append([lower_bound_basic,upper_bound_basic])
             else:
-                print("y is too small~~")
-                retval = -1
-                return retval
-            
+                lower_bound_basic = y-int(split_y/2.0)
+                upper_bound_basic = y+int(split_y/2.0)
+                bound_list.append([lower_bound_basic,upper_bound_basic])
+                for i in range(2):
+                    lower_bound = y-int(split_y/2.0)-(i+1)*4
+                    upper_bound = y+int(split_y/2.0)-(i+1)*4
+                    bound_list.append([lower_bound,upper_bound])
+                for i in range(2):
+                    lower_bound = y-int(split_y/2.0)+(i+1)*4
+                    upper_bound = y+int(split_y/2.0)+(i+1)*4
+                    bound_list.append([lower_bound,upper_bound])
+
+            for i in range(len(bound_list)):
+                lower_bound = bound_list[i][0]
+                upper_bound = bound_list[i][1]
+                print(f"split_y:{split_y}")
+                if lower_bound>0:
+                    split_vanish_crop_image = img[lower_bound:upper_bound,0:w-1]
+                    if self.show_imcrop:
+                        cv2.imshow("split vanish area",split_vanish_crop_image)
+                        cv2.waitKey(1)
+                    #input()
+                    if self.save_imcrop:
+                        label = 0
+                        save_dir = os.path.join(self.save_dir,str(label))
+                        os.makedirs(save_dir,exist_ok=True)
+                        save_crop_im = img_name + "_" + str(tag) + ".jpg"
+                        save_crop_im_path = os.path.join(save_dir,save_crop_im)
+                        if not os.path.exists(save_crop_im_path):
+                            cv2.imwrite(save_crop_im_path,split_vanish_crop_image)
+                        else:
+                            print(f"file {img_name}_0.jpg exists")
+                        tag=tag+1
+                else:
+                    print("y is too small~~")
+                    retval = -1
+                    return retval
+                
+            ## Generate others crop images
             if y>split_y:
-                y_l = lower_bound - split_y
+                y_l = lower_bound_basic - split_y
                 while(y_l>0 and y_l+split_y<h):
                     split_other_image = img[y_l:y_l+split_y,0:w-1]
                     # cv2.imshow("up others img",split_other_image)
@@ -204,7 +227,7 @@ class BDD100K:
                         else:
                             print(f"file {img_name}_{tag}.jpg exists")
                         tag=tag+1
-                y_t = upper_bound + split_y
+                y_t = upper_bound_basic + split_y
                 while(y_t<(h-1) and y_t-split_y>0):
                     split_other_image = img[y_t-split_y:y_t,0:w-1]
                     # cv2.imshow("down others img",split_other_image)
@@ -236,6 +259,8 @@ def get_args():
     parser.add_argument('-showim','--show-im',type=bool,help='show images',default=False)
     parser.add_argument('-showimcrop','--show-imcrop',type=bool,help='show crop images',default=True)
     parser.add_argument('-saveimcrop','--save-imcrop',type=bool,help='save  crop images',default=True)
+
+    parser.add_argument('-multicrop','--multi-crop',type=bool,help='save nultiple vanish area crop images',default=True)
 
     parser.add_argument('-splitnum','--split-num',type=int,help='split number',default=10)
     parser.add_argument('-splitwidth','--split-width',type=int,help='split image width',default=72)
