@@ -11,6 +11,9 @@ class BDD100K:
         self.im_dir = args.im_dir
         self.dataset_dir = args.data_dir
         self.show_im = args.show_im
+        self.split_num = args.split_num
+        self.show_imcrop = args.show_imcrop
+        self.save_imcrop = args.save_imcrop
 
     def parse_path(self,path,type="val"):
         file = path.split(os.sep)[-1]
@@ -107,10 +110,39 @@ class BDD100K:
 
             if os.path.exists(lane_path):
                 print("lane_path exists!")
+            self.split_Image(im_path_list[i],min,i)
 
         return min
     
-    def split_Image(self):
+    def split_Image(self,im_path,drivable_min_y,cnt):
+        print(im_path)
+        label=None
+        img = cv2.imread(im_path)
+        split_y = int(img.shape[0] / self.split_num)
+        h,w = img.shape[0],img.shape[1]
+        print(f"split_y:{split_y}")
+        for i in range(self.split_num):
+            split_img = img[split_y*i:split_y*(i+1),0:w-1]
+            
+            
+            if drivable_min_y>=split_y*i and drivable_min_y<split_y*(i+1):
+                print("it is vansih line area")
+                label=0
+                input()
+            else:
+                label=1
+            
+            if self.save_imcrop:
+                save_img_dir = os.path.join(self.save_dir,str(label))
+                os.makedirs(save_img_dir,exist_ok=True)
+                im_name = str(cnt) + "_" + str(i+1) +  ".jpg"
+                save_im_path = os.path.join(save_img_dir,im_name)
+                cv2.imwrite(save_im_path,split_img)
+
+
+            if self.show_imcrop:
+                cv2.imshow("split img",split_img)
+                cv2.waitKey(400)
         return NotImplemented
     
 
@@ -122,10 +154,10 @@ def get_args():
     parser.add_argument('-datadir','--data-dir',help='dataset directory',default="/home/ali/Projects/datasets/BDD100K-ori")
 
     parser.add_argument('-showim','--show-im',type=bool,help='show images',default=False)
-    parser.add_argument('-showimcrop','--show-imcrop',type=bool,help='show crop images',default=False)
+    parser.add_argument('-showimcrop','--show-imcrop',type=bool,help='show crop images',default=True)
     parser.add_argument('-saveimcrop','--save-imcrop',type=bool,help='save  crop images',default=True)
 
-
+    parser.add_argument('-splitnum','--split-num',type=int,help='split number',default=10)
     parser.add_argument('-dataset','--dataset',help='dataset directory',default="/home/ali/Projects/datasets/CULane/driver_161_90frame_crop_2cls/train")
     return parser.parse_args()
 
