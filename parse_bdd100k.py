@@ -16,6 +16,8 @@ class BDD100K:
         self.show_imcrop = args.show_imcrop
         self.save_imcrop = args.save_imcrop
         self.multi_crop = args.multi_crop
+        self.multi_num = args.multi_num
+        self.shift_pixels = args.shift_pixels
 
     def parse_path(self,path,type="val"):
         file = path.split(os.sep)[-1]
@@ -172,13 +174,13 @@ class BDD100K:
                 lower_bound_basic = y-int(split_y/2.0)
                 upper_bound_basic = y+int(split_y/2.0)
                 bound_list.append([lower_bound_basic,upper_bound_basic])
-                for i in range(2):
-                    lower_bound = y-int(split_y/2.0)-(i+1)*4
-                    upper_bound = y+int(split_y/2.0)-(i+1)*4
+                for i in range(int(self.multi_num/2.0)):
+                    lower_bound = y-int(split_y/2.0)-(i+1)*int(self.shift_pixels)
+                    upper_bound = y+int(split_y/2.0)-(i+1)*int(self.shift_pixels)
                     bound_list.append([lower_bound,upper_bound])
-                for i in range(2):
-                    lower_bound = y-int(split_y/2.0)+(i+1)*4
-                    upper_bound = y+int(split_y/2.0)+(i+1)*4
+                for i in range(int(self.multi_num/2.0)):
+                    lower_bound = y-int(split_y/2.0)+(i+1)*int(self.shift_pixels)
+                    upper_bound = y+int(split_y/2.0)+(i+1)*int(self.shift_pixels)
                     bound_list.append([lower_bound,upper_bound])
 
             for i in range(len(bound_list)):
@@ -260,7 +262,9 @@ def get_args():
     parser.add_argument('-showimcrop','--show-imcrop',type=bool,help='show crop images',default=True)
     parser.add_argument('-saveimcrop','--save-imcrop',type=bool,help='save  crop images',default=True)
 
-    parser.add_argument('-multicrop','--multi-crop',type=bool,help='save nultiple vanish area crop images',default=True)
+    parser.add_argument('-multicrop','--multi-crop',type=bool,help='save multiple vanish area crop images',default=True)
+    parser.add_argument('-multinum','--multi-num',type=int,help='number of multiple vanish area crop images',default=8)
+    parser.add_argument('-shiftpixel','--shift-pixels',type=int,help='number of multiple crop images shift pixels',default=3)
 
     parser.add_argument('-splitnum','--split-num',type=int,help='split number',default=10)
     parser.add_argument('-splitwidth','--split-width',type=int,help='split image width',default=72)
