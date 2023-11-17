@@ -14,6 +14,13 @@ class CULane:
         self.labels = [0,1]
 
     def Balance_Data(self):
+        '''
+        input:
+            self.dataset
+            
+        ouitput:
+            Balanced dataset
+        '''
         label_num = []
         for label in self.labels:
             label_path_list = glob.glob(os.path.join(self.dataset,str(label),"*.jpg"))
@@ -38,6 +45,14 @@ class CULane:
                         shutil.copy(im_path,copy_im_path)
 
     def Split_Images(self,split_num=10):
+        '''
+        input parameter :
+            self.im_dir
+            self.save_dir
+
+        output : cropped images
+        '''
+        print(self.im_dir)
         im_path_list = glob.glob(os.path.join(self.im_dir,"***","**","*.jpg"))
         if len(im_path_list)==0:
             im_path_list = glob.glob(os.path.join(self.im_dir,"**","*.jpg"))
@@ -45,6 +60,7 @@ class CULane:
             im_path_list = glob.glob(os.path.join(self.im_dir,"*.jpg"))
 
         im_cnt = 1
+        #print(im_path_list)
         for i in range(len(im_path_list)):
             print(f"{i}:{im_path_list[i]}")
             im = cv2.imread(im_path_list[i])
@@ -83,21 +99,21 @@ class CULane:
 def get_args():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-imdir','--im-dir',help='image directory',default="/home/ali/Projects/datasets/CULane/driver_161_90frame")
-    parser.add_argument('-savedir','--save-dir',help='save image directory',default="/home/ali/Projects/datasets/CULane/driver_161_90frame_crop")
+    parser.add_argument('-imdir','--im-dir',help='image directory',default="/home/ali/Projects/datasets/snow_data/images/100k/train")
+    parser.add_argument('-savedir','--save-dir',help='save image directory',default="/home/ali/Projects/datasets/snow_crop")
 
     parser.add_argument('-showim','--show-im',type=bool,help='show images',default=False)
     parser.add_argument('-showimcrop','--show-imcrop',type=bool,help='show crop images',default=False)
     parser.add_argument('-saveimcrop','--save-imcrop',type=bool,help='save  crop images',default=True)
 
 
-    parser.add_argument('-dataset','--dataset',help='dataset directory',default="/home/ali/Projects/datasets/CULane/driver_161_90frame_crop_2cls")
+    parser.add_argument('-dataset','--dataset',help='dataset directory',default="/home/ali/Projects/datasets/CULane/driver_161_90frame_crop_2cls/train")
     return parser.parse_args()
 
 
 if __name__=="__main__":
     args = get_args()
     cu = CULane(args)
-    #cu.Split_Images()
-    cu.Balance_Data()
+    cu.Split_Images(split_num=10)
+    #cu.Balance_Data()
     
