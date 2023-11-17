@@ -132,6 +132,11 @@ class BDD100K:
 
     def Get_Vanish_Area(self):
         '''
+        func: Get_Vanish_Area
+        Purpose : 
+            parsing the images in given image directory, 
+            find the vanish line area and crop the vanish line area, 
+            and crop others area
         input:
             self.im_dir : the image directory
             self.dataset_dir : the dataset directory
