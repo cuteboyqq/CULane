@@ -131,6 +131,13 @@ class BDD100K:
         return min
 
     def Get_Vanish_Area(self):
+        '''
+        input:
+            self.im_dir : the image directory
+            self.dataset_dir : the dataset directory
+        output:
+            the split images
+        '''
         im_path_list = glob.glob(os.path.join(self.im_dir,"*.jpg"))
 
         for i in range(len(im_path_list)):
