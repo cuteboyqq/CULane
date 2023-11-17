@@ -18,6 +18,8 @@ class BDD100K:
         self.multi_crop = args.multi_crop
         self.multi_num = args.multi_num
         self.shift_pixels = args.shift_pixels
+        self.data_type = args.data_type
+        self.data_num = args.data_num
 
     def parse_path(self,path,type="val"):
         file = path.split(os.sep)[-1]
@@ -140,14 +142,22 @@ class BDD100K:
         input:
             self.im_dir : the image directory
             self.dataset_dir : the dataset directory
+            self.save_dir : save crop image directory
         output:
             the split images
         '''
         im_path_list = glob.glob(os.path.join(self.im_dir,"*.jpg"))
 
-        for i in range(len(im_path_list)):
+        if self.data_num<len(im_path_list):
+            final_wanted_img_count = self.data_num
+        else:
+            final_wanted_img_count = len(im_path_list)
+
+        print(f"final_wanted_img_count = {final_wanted_img_count}")
+
+        for i in range(final_wanted_img_count):
             print(f"{i}:{im_path_list[i]}")
-            drivable_path,lane_path,detection_path = self.parse_path(im_path_list[i])
+            drivable_path,lane_path,detection_path = self.parse_path(im_path_list[i],type=self.data_type)
             #print(f"drivable_path:{drivable_path}, \n lane_path:{lane_path}")
             
             img = cv2.imread(im_path_list[i])
@@ -266,9 +276,14 @@ class BDD100K:
 def get_args():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-imdir','--im-dir',help='image directory',default="/home/ali/Projects/datasets/BDD100K-ori/images/100k/val")
-    parser.add_argument('-savedir','--save-dir',help='save image directory',default="/home/ali/Projects/datasets/BDD100K_Val_crop")
+    parser.add_argument('-imdir','--im-dir',help='image directory',default="/home/ali/Projects/datasets/BDD100K-ori/images/100k/train")
+    parser.add_argument('-savedir','--save-dir',help='save image directory',default="/home/ali/Projects/datasets/BDD100K_Train_crop")
     parser.add_argument('-datadir','--data-dir',help='dataset directory',default="/home/ali/Projects/datasets/BDD100K-ori")
+
+    parser.add_argument('-datatype','--data-type',help='data type',default="train")
+    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=10000)
+
+
 
     parser.add_argument('-showim','--show-im',type=bool,help='show images',default=False)
     parser.add_argument('-showimcrop','--show-imcrop',type=bool,help='show crop images',default=True)
