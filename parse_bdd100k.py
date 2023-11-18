@@ -31,7 +31,17 @@ class BDD100K:
         ## parse image detail
         self.data_type = args.data_type
         self.data_num = args.data_num
-
+        self.wanted_label_list = [2,3,4]
+        # 0: pedestrian
+        # 1: rider
+        # 2: car
+        # 3: truck
+        # 4: bus
+        # 5: train
+        # 6: motorcycle
+        # 7: bicycle
+        # 8: traffic light
+        # 9: traffic sign
         ## view result
         self.show_vanishline = args.show_vanishline
         self.show_imcrop = args.show_imcrop
@@ -82,7 +92,8 @@ class BDD100K:
 
     def Get_Min_y_In_Drivable_Area(self,drivable_path):
         if not os.path.exists(drivable_path):
-            return 0
+            drivable_img = cv2.imread(drivable_path)
+            return int(drivable_img.shape[0]/2.0)
         else:
             print("drivable_path exists!")
             drivable_img = cv2.imread(drivable_path)
@@ -101,6 +112,7 @@ class BDD100K:
                 if(drivable_img[y][p1_w][0]!=0):
                     find_small_y=True
                     p1y = y
+                    break
                 else:
                     y+=1
 
@@ -110,6 +122,7 @@ class BDD100K:
                 if(drivable_img[y][p2_w][0]!=0):
                     find_small_y=True
                     p2y = y
+                    break
                 else:
                     y+=1
             
@@ -119,11 +132,20 @@ class BDD100K:
                 if(drivable_img[y][p3_w][0]!=0):
                     find_small_y=True
                     p3y = y
+                    break
                 else:
                     y+=1
 
             print(f"p1y:{p1y},p2y:{p2y},p3y:{p3y}")
             min,index = self.find_min_value(p1y,p2y,p3y)
+            if min==0:
+                # print(f"min={min} special case~~~~~")
+                # if p1y==0 and p2y==0 and p3y==0:
+                #     min = int(drivable_img.shape[0]/2.0)
+                # elif not all([p1y,p2y,p3y]):
+                #     min,index = self.find_max_value(p1y,p2y,p3y)
+                min=None
+                    
             print(f"min = {min}, index={index}")
 
             return min,index
@@ -148,19 +170,26 @@ class BDD100K:
                 w = int(float(line.split(" ")[3])*img_w)
                 h = int(float(line.split(" ")[4])*img_h)
                 #print(f"{la} {x} {y} {w} {h}")
-                if w*h < min_rea and int(la)==2:
+                if w*h < min_rea and int(la) in self.wanted_label_list:
                     print(f"w*h={w*h},min_rea={min_rea},x:{x},y:{y}")
                     min_rea = w*h
                     find_min_area=True
                     print(f"find_min_area :{find_min_area} ")
                     
-
-                if int(la)==2 and (y+0)<min and find_min_area:
-                    print(f"y:{y} min:{min}")
-                    min=y
-                    min_x=x
-                    min_w=w
-                    min_h=h
+                if min is not None:
+                    if int(la) in self.wanted_label_list and find_min_area:
+                        print(f"y:{y} min:{min}")
+                        min=y
+                        min_x=x
+                        min_w=w
+                        min_h=h
+                else:
+                    if int(la) in self.wanted_label_list and find_min_area:
+                        print(f"y:{y} min:{min}")
+                        min=y
+                        min_x=x
+                        min_w=w
+                        min_h=h
         return min
         #return min,min_x,min_w,min_h
 
@@ -200,7 +229,7 @@ class BDD100K:
             h,w = img.shape[0],img.shape[1]
 
             min_final,index = self.Get_Min_y_In_Drivable_Area(drivable_path)
-
+            
             min_final_2 = self.Find_Min_Y_Among_All_Vehicle_Bounding_Boxes(min_final,detection_path,h,w)
 
             # if os.path.exists(lane_path):
@@ -248,7 +277,8 @@ class BDD100K:
             h,w = img.shape[0],img.shape[1]
 
             min_final,index = self.Get_Min_y_In_Drivable_Area(drivable_path)
-
+            print(f"min_final = {min_final}")
+            #input()
             min_final_2 = self.Find_Min_Y_Among_All_Vehicle_Bounding_Boxes(min_final,detection_path,h,w)
 
             print(f"min_final_2 :{min_final_2}")
