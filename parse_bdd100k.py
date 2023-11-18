@@ -337,7 +337,7 @@ class BDD100K:
             img_name = (im_path.split(os.sep)[-1]).split(".")[0]
             print(im_path)
             label=None
-            y = int(drivable_min_y)
+            y = 0 if drivable_min_y is None else int(drivable_min_y)
             print(f"y:{y}")
             img = cv2.imread(im_path)
             split_y = int(img.shape[0] / self.split_num)
@@ -441,8 +441,8 @@ class BDD100K:
 def get_args():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-imdir','--im-dir',help='image directory',default="/home/ali/Projects/datasets/BDD100K-ori/images/100k/val")
-    parser.add_argument('-savedir','--save-dir',help='save image directory',default="/home/ali/Projects/datasets/BDD100K_Val_Crop_3000_Ver3")
+    parser.add_argument('-imdir','--im-dir',help='image directory',default="/home/ali/Projects/datasets/BDD100K-ori/images/100k/train")
+    parser.add_argument('-savedir','--save-dir',help='save image directory',default="/home/ali/Projects/datasets/BDD100K_Train_Crop_Ver3_2023-11-18")
     parser.add_argument('-datadir','--data-dir',help='dataset directory',default="/home/ali/Projects/datasets/BDD100K-ori")
 
 
@@ -450,8 +450,8 @@ def get_args():
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
 
 
-    parser.add_argument('-datatype','--data-type',help='data type',default="val")
-    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=1000)
+    parser.add_argument('-datatype','--data-type',help='data type',default="train")
+    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=20000)
 
 
 
@@ -461,7 +461,7 @@ def get_args():
     parser.add_argument('-saveimcrop','--save-imcrop',type=bool,help='save  crop images',default=True)
 
     parser.add_argument('-multicrop','--multi-crop',type=bool,help='save multiple vanish area crop images',default=True)
-    parser.add_argument('-multinum','--multi-num',type=int,help='number of multiple vanish area crop images',default=4)
+    parser.add_argument('-multinum','--multi-num',type=int,help='number of multiple vanish area crop images',default=6)
     parser.add_argument('-shiftpixel','--shift-pixels',type=int,help='number of multiple crop images shift pixels',default=2)
 
     parser.add_argument('-splitnum','--split-num',type=int,help='split number',default=10)
@@ -473,7 +473,7 @@ def get_args():
 if __name__=="__main__":
     args=get_args()
     bk = BDD100K(args)
-    #bk.Get_Vanish_Area()
-    bk.Add_Vanish_Line_Area_Yolo_Txt_Labels()
+    bk.Get_Vanish_Area()
+    #bk.Add_Vanish_Line_Area_Yolo_Txt_Labels()
 
 
