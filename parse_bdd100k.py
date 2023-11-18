@@ -6,21 +6,36 @@ import cv2
 class BDD100K:
 
     def __init__(self,args):
+
+        ## data directory
         self.dataset_dir =  args.dataset
         self.save_dir = args.save_dir
         self.im_dir = args.im_dir
         self.dataset_dir = args.data_dir
-        self.show_im = args.show_im
+        
+        ## split crop image detail
         self.split_num = args.split_num
-        self.split_width = args.split_width
-        self.show_imcrop = args.show_imcrop
+        self.split_height = args.split_height
+        
         self.save_imcrop = args.save_imcrop
+
+        ## Augmentation using shift cropping
         self.multi_crop = args.multi_crop
         self.multi_num = args.multi_num
         self.shift_pixels = args.shift_pixels
+        
+        ## yolo.txt parameter
+        self.save_txtdir = args.save_txtdir
+        self.vla_label = args.vla_label
+
+        ## parse image detail
         self.data_type = args.data_type
         self.data_num = args.data_num
+
+        ## view result
         self.show_vanishline = args.show_vanishline
+        self.show_imcrop = args.show_imcrop
+        self.show_im = args.show_im
 
     def parse_path(self,path,type="val"):
         file = path.split(os.sep)[-1]
@@ -172,7 +187,7 @@ class BDD100K:
             final_wanted_img_count = len(im_path_list)
 
         print(f"final_wanted_img_count = {final_wanted_img_count}")
-
+        min_final_2 = None
         for i in range(final_wanted_img_count):
             print(f"{i}:{im_path_list[i]}")
             drivable_path,lane_path,detection_path = self.parse_path(im_path_list[i],type=self.data_type)
@@ -195,6 +210,92 @@ class BDD100K:
 
 
         return min_final_2
+    
+
+    def Add_Vanish_Line_Area_Yolo_Txt_Labels(self):
+        '''
+        func: Get_Vanish_Area
+        Purpose : 
+            parsing the images in given image directory, 
+            find the vanish line area and add bounding box information label x y w h 
+            into label.txt of yolo format
+        input:
+            self.im_dir : the image directory
+            self.dataset_dir : the dataset directory
+            self.save_dir : save crop image directory
+            
+        output:
+            the label.txt with vanish line area bounding box
+        '''
+        im_path_list = glob.glob(os.path.join(self.im_dir,"*.jpg"))
+
+        if self.data_num<len(im_path_list):
+            final_wanted_img_count = self.data_num
+        else:
+            final_wanted_img_count = len(im_path_list)
+
+        print(f"final_wanted_img_count = {final_wanted_img_count}")
+        min_final_2 = None
+        for i in range(final_wanted_img_count):
+            print(f"{i}:{im_path_list[i]}")
+            drivable_path,lane_path,detection_path = self.parse_path(im_path_list[i],type=self.data_type)
+            #print(f"drivable_path:{drivable_path}, \n lane_path:{lane_path}")
+            if not os.path.exists(detection_path):
+                print(f"detection_path not exist !! PASS:{detection_path}")
+                continue
+            
+            img = cv2.imread(im_path_list[i])
+            h,w = img.shape[0],img.shape[1]
+
+            min_final,index = self.Get_Min_y_In_Drivable_Area(drivable_path)
+
+            min_final_2 = self.Find_Min_Y_Among_All_Vehicle_Bounding_Boxes(min_final,detection_path,h,w)
+
+            print(f"min_final_2 :{min_final_2}")
+            
+            success = self.Add_VLA_Yolo_Txt_Label(min_final_2,detection_path,h,w,im_path_list[i])
+            
+            #input()
+        return min_final_2
+
+    def Add_VLA_Yolo_Txt_Label(self,min_y,detection_path,h,w,im_path):
+        success = 0
+        # with open(detection_path,'r') as f:
+        #     lines = f.readlines()
+        #     for line in lines:
+        #         print(line)
+        txt_file = detection_path.split(os.sep)[-1]
+        os.makedirs(self.save_txtdir,exist_ok=True)
+        os.makedirs(self.save_txtdir,exist_ok=True)
+        save_txt_path = os.path.join(self.save_txtdir,txt_file)
+
+        ## Copy original label.txt to new directory
+        if not os.path.exists(save_txt_path):
+            shutil.copy(detection_path,save_txt_path)
+            shutil.copy(im_path,self.save_txtdir)
+            print(f"Copy detection_path to :{save_txt_path} successful !!")
+        else:
+            print(f"File {save_txt_path} exists ~~~~~~~~~~~~~~,PASS!!")
+            success = 1
+            return success
+
+        ## Add new VLA label to label.txt
+        VLA_label = self.vla_label
+        x = float(int((float(int(w/2.0)-1)/w)*1000000)/1000000)
+        y = float(int(float(min_y/h)*1000000)/1000000)
+        w = 1.0
+        h = float(int(float(self.split_height / h)*1000000)/1000000)
+        lxywh =  str(VLA_label) + " "\
+                + str(x) + " "\
+                + str(y) + " "\
+                + str(w) + " "\
+                 + str(h)
+        with open(save_txt_path,'a') as f:
+            # Add VLA(Vanish Line Area Bounding Box) l x y w h
+            f.write(lxywh)
+        
+        success = 1
+        return success
     
     # def split_Image(self,im_path,drivable_min_y,min_x,min_w,minh):
     def split_Image(self,im_path,drivable_min_y):
@@ -310,12 +411,17 @@ class BDD100K:
 def get_args():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-imdir','--im-dir',help='image directory',default="/home/ali/Projects/datasets/BDD100K-ori/images/100k/train")
-    parser.add_argument('-savedir','--save-dir',help='save image directory',default="/home/ali/Projects/datasets/BDD100K_Train_Crop_20000_Ver2")
+    parser.add_argument('-imdir','--im-dir',help='image directory',default="/home/ali/Projects/datasets/BDD100K-ori/images/100k/val")
+    parser.add_argument('-savedir','--save-dir',help='save image directory',default="/home/ali/Projects/datasets/BDD100K_Val_Crop_3000_Ver3")
     parser.add_argument('-datadir','--data-dir',help='dataset directory',default="/home/ali/Projects/datasets/BDD100K-ori")
 
-    parser.add_argument('-datatype','--data-type',help='data type',default="train")
-    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=20000)
+
+    parser.add_argument('-savetxtdir','--save-txtdir',help='save image directory',default="/home/ali/Projects/datasets/BDD100K_Val_VLA_label_txt_2023-11-18")
+    parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
+
+
+    parser.add_argument('-datatype','--data-type',help='data type',default="val")
+    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=1000)
 
 
 
@@ -325,11 +431,11 @@ def get_args():
     parser.add_argument('-saveimcrop','--save-imcrop',type=bool,help='save  crop images',default=True)
 
     parser.add_argument('-multicrop','--multi-crop',type=bool,help='save multiple vanish area crop images',default=True)
-    parser.add_argument('-multinum','--multi-num',type=int,help='number of multiple vanish area crop images',default=6)
+    parser.add_argument('-multinum','--multi-num',type=int,help='number of multiple vanish area crop images',default=4)
     parser.add_argument('-shiftpixel','--shift-pixels',type=int,help='number of multiple crop images shift pixels',default=2)
 
     parser.add_argument('-splitnum','--split-num',type=int,help='split number',default=10)
-    parser.add_argument('-splitwidth','--split-width',type=int,help='split image width',default=72)
+    parser.add_argument('-splitheight','--split-height',type=int,help='split image height',default=64)
     parser.add_argument('-dataset','--dataset',help='dataset directory',default="/home/ali/Projects/datasets/CULane/driver_161_90frame_crop_2cls/train")
     return parser.parse_args()
 
@@ -337,6 +443,7 @@ def get_args():
 if __name__=="__main__":
     args=get_args()
     bk = BDD100K(args)
-    bk.Get_Vanish_Area()
+    #bk.Get_Vanish_Area()
+    bk.Add_Vanish_Line_Area_Yolo_Txt_Labels()
 
 
