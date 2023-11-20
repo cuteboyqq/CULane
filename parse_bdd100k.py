@@ -27,6 +27,7 @@ class BDD100K:
         ## yolo.txt parameter
         self.save_txtdir = args.save_txtdir
         self.vla_label = args.vla_label
+        self.save_img = args.save_img
 
         ## parse image detail
         self.data_type = args.data_type
@@ -190,6 +191,8 @@ class BDD100K:
                         min_x=x
                         min_w=w
                         min_h=h
+        if min is None:
+            min = int(img_h/2.0)
         return min
         #return min,min_x,min_w,min_h
 
@@ -302,7 +305,8 @@ class BDD100K:
         ## Copy original label.txt to new directory
         if not os.path.exists(save_txt_path):
             shutil.copy(detection_path,save_txt_path)
-            shutil.copy(im_path,self.save_txtdir)
+            if self.save_img:
+                shutil.copy(im_path,self.save_txtdir)
             print(f"Copy detection_path to :{save_txt_path} successful !!")
         else:
             print(f"File {save_txt_path} exists ~~~~~~~~~~~~~~,PASS!!")
@@ -441,17 +445,21 @@ class BDD100K:
 def get_args():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-imdir','--im-dir',help='image directory',default="/home/ali/Projects/datasets/BDD100K-ori/images/100k/train")
-    parser.add_argument('-savedir','--save-dir',help='save image directory',default="/home/ali/Projects/datasets/BDD100K_Train_Crop_Ver3_2023-11-18")
-    parser.add_argument('-datadir','--data-dir',help='dataset directory',default="/home/ali/Projects/datasets/BDD100K-ori")
+    parser.add_argument('-imdir','--im-dir',help='image directory',\
+                        default="/home/ali/Projects/datasets/bdd100k_data_0.9/images/100k/train")
+    parser.add_argument('-savedir','--save-dir',help='save image directory',\
+                        default="/home/ali/Projects/datasets/BDD100K_Train_VLA_label_Txt_2023-11-20")
+    parser.add_argument('-datadir','--data-dir',help='dataset directory',\
+                        default="/home/ali/Projects/datasets/bdd100k_data_0.9")
 
 
-    parser.add_argument('-savetxtdir','--save-txtdir',help='save image directory',default="/home/ali/Projects/datasets/BDD100K_Val_VLA_label_txt_2023-11-18")
+    parser.add_argument('-savetxtdir','--save-txtdir',help='save image directory',\
+                        default="/home/ali/Projects/datasets/BDD100K_Train_VLA_label_txt_2023-11-20")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
-
+    parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
 
     parser.add_argument('-datatype','--data-type',help='data type',default="train")
-    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=20000)
+    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=70000)
 
 
 
@@ -473,7 +481,7 @@ def get_args():
 if __name__=="__main__":
     args=get_args()
     bk = BDD100K(args)
-    bk.Get_Vanish_Area()
-    #bk.Add_Vanish_Line_Area_Yolo_Txt_Labels()
+    #bk.Get_Vanish_Area()
+    bk.Add_Vanish_Line_Area_Yolo_Txt_Labels()
 
 
