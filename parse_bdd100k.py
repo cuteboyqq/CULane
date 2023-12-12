@@ -445,20 +445,20 @@ def get_args():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-imdir','--im-dir',help='image directory',\
-                        default="/home/ali/Projects/datasets/bdd100k_data_0.9/images/100k/val")
+                        default="/home/ali/Projects/datasets/bdd100k_data_0.9/images/100k/train")
     parser.add_argument('-savedir','--save-dir',help='save image directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Val_VLA_label_Txt_h100_2023-11-22")
+                        default="/home/ali/Projects/datasets/BDD100K_Train_VLA_label_Txt_h100_2023-11-24")
     parser.add_argument('-datadir','--data-dir',help='dataset directory',\
                         default="/home/ali/Projects/datasets/bdd100k_data_0.9")
 
 
     parser.add_argument('-savetxtdir','--save-txtdir',help='save image directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Train_VLA_label_Txt_h100_2023-11-22")
+                        default="/home/ali/Projects/datasets/BDD100K_Train_VLA_label_Txt_h100_2023-11-24")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
     parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
 
-    parser.add_argument('-datatype','--data-type',help='data type',default="val")
-    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=10000)
+    parser.add_argument('-datatype','--data-type',help='data type',default="train")
+    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=70000)
 
 
 
@@ -472,7 +472,7 @@ def get_args():
     parser.add_argument('-shiftpixel','--shift-pixels',type=int,help='number of multiple crop images shift pixels',default=2)
 
     parser.add_argument('-splitnum','--split-num',type=int,help='split number',default=10)
-    parser.add_argument('-splitheight','--split-height',type=int,help='split image height',default=100)
+    parser.add_argument('-splitheight','--split-height',type=int,help='split image height',default=40)
     parser.add_argument('-dataset','--dataset',help='dataset directory',default="/home/ali/Projects/datasets/CULane/driver_161_90frame_crop_2cls/train")
     return parser.parse_args()
 
