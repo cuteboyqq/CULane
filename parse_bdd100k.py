@@ -488,40 +488,45 @@ class BDD100K:
             
     def Add_DCA_Yolo_Txt_Label(self,xywh,detection_path,h,w,im_path):
         success = 0
-        x = float((int(float(xywh[0]/w)*1000000))/1000000)
-        y = float((int(float(xywh[1]/h)*1000000))/1000000)
-        w = float((int(float(xywh[2]/w)*1000000))/1000000)
-        h = float((int(float(xywh[3]/h)*1000000))/1000000)
-        la = self.dca_label
-        
-        DCA_lxywh = str(la) + " " \
-                    +str(x) + " " \
-                    +str(y) + " " \
-                    + str(w) + " " \
-                    + str(h) 
-        
-        if not os.path.exists(self.save_txtdir):
-            os.makedirs(self.save_txtdir,exist_ok=True)
+        if os.path.exists(detection_path):
+            x = float((int(float(xywh[0]/w)*1000000))/1000000)
+            y = float((int(float(xywh[1]/h)*1000000))/1000000)
+            w = float((int(float(xywh[2]/w)*1000000))/1000000)
+            h = float((int(float(xywh[3]/h)*1000000))/1000000)
+            la = self.dca_label
+            
+            DCA_lxywh = str(la) + " " \
+                        +str(x) + " " \
+                        +str(y) + " " \
+                        + str(w) + " " \
+                        + str(h) 
+            
+            if not os.path.exists(self.save_txtdir):
+                os.makedirs(self.save_txtdir,exist_ok=True)
 
-        label_txt_file = detection_path.split(os.sep)[-1]
-        save_label_path = os.path.join(self.save_txtdir,label_txt_file)
-        
-        # Copy the original label.txt into the save_label_path
-        if not os.path.exists(label_txt_file):
-            shutil.copy(detection_path,save_label_path)
+            label_txt_file = detection_path.split(os.sep)[-1]
+            save_label_path = os.path.join(self.save_txtdir,label_txt_file)
+            
+            # Copy the original label.txt into the save_label_path
+            if not os.path.exists(label_txt_file):
+                shutil.copy(detection_path,save_label_path)
+            else:
+                print(f"File exists ,PASS! : {save_label_path}")
+
+            if self.save_img:
+                shutil.copy(im_path,self.save_txtdir)
+
+            
+            # Add DCA label into Yolo label.txt
+            with open(save_label_path,'a') as f:
+                f.write(DCA_lxywh)
+
+            # print(f"{la}:{x}:{y}:{w}:{h}")
+            success = 1
         else:
-            print(f"File exists ,PASS! : {save_label_path}")
-
-        if self.save_img:
-            shutil.copy(im_path,self.save_txtdir)
-
-        
-        # Add DCA label into Yolo label.txt
-        with open(save_label_path,'a') as f:
-            f.write(DCA_lxywh)
-
-        # print(f"{la}:{x}:{y}:{w}:{h}")
-        success = 1
+            success = 0
+            print(f"detection_path:{detection_path} does not exists !! PASS~~~~~")
+            return success
 
         return success
 
@@ -674,10 +679,10 @@ def get_args():
 
 
     parser.add_argument('-savetxtdir','--save-txtdir',help='save txt directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Train_DCA_label_Txt_2023-12-12")
+                        default="/home/ali/Projects/datasets/BDD100K_Train_DCA_label_Txt_2023-12-13")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
     parser.add_argument('-dcalabel','--dca-label',type=int,help='DCA label',default=13)
-    parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=True)
+    parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
 
     parser.add_argument('-datatype','--data-type',help='data type',default="train")
     parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=70000)
