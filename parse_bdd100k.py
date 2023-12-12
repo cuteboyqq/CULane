@@ -27,6 +27,7 @@ class BDD100K:
         ## yolo.txt parameter
         self.save_txtdir = args.save_txtdir
         self.vla_label = args.vla_label
+        self.dca_label = args.dca_label
         self.save_img = args.save_img
 
         ## parse image detail
@@ -477,9 +478,23 @@ class BDD100K:
 
         print(f"final_wanted_img_count = {final_wanted_img_count}")
         min_final_2 = None
+        
         for i in range(final_wanted_img_count):
+            drivable_path,drivable_mask_path,lane_path,detection_path = self.parse_path_ver2(im_path_list[i],type=self.data_type)
             print(f"{i}:{im_path_list[i]}")
-            self.Get_DCA_XYWH(im_path_list[i])
+            xywh,h,w = self.Get_DCA_XYWH(im_path_list[i])
+
+            self.Add_DCA_Yolo_Txt_Label(xywh,detection_path,h,w,im_path_list[i])
+            
+    def Add_DCA_Yolo_Txt_Label(self,xywh,detection_path,h,w,im_path):
+        x = float((int(float(xywh[0]/w)*1000000))/1000000)
+        y = float((int(float(xywh[1]/h)*1000000))/1000000)
+        w = float((int(float(xywh[2]/w)*1000000))/1000000)
+        h = float((int(float(xywh[3]/h)*1000000))/1000000)
+        la = self.dca_label
+        
+        print(f"{la}:{x}:{y}:{w}:{h}")
+
 
     def Get_DCA_XYWH(self,im_path):
         '''
@@ -488,16 +503,26 @@ class BDD100K:
         1: Alter Lane
         2: BackGround
         '''
-
-        dri_map = {"MainLane": 0, "AlterLane": 1, "BackGround":2}
-
+        
         drivable_path,drivable_mask_path,lane_path,detection_path = self.parse_path_ver2(im_path,type=self.data_type)
+
+        h = 0
+        w = 0
         if os.path.exists(drivable_path):
             im_dri = cv2.imread(drivable_mask_path)
-            im_dri_cm = cv2.imread(drivable_path)
-            
             h,w = im_dri.shape[0],im_dri.shape[1]
             print(f"h:{h}, w:{w}")
+
+
+        min_final,index = self.Get_Min_y_In_Drivable_Area(drivable_path)    
+        min_final_2 = self.Find_Min_Y_Among_All_Vehicle_Bounding_Boxes(min_final,detection_path,h,w)
+
+        dri_map = {"MainLane": 0, "AlterLane": 1, "BackGround":2}
+        
+        if os.path.exists(drivable_path):
+            
+            im_dri_cm = cv2.imread(drivable_path)
+            im = cv2.imread(im_path)
 
             Lowest_H = 0
             Search_line_H = 0
@@ -525,8 +550,8 @@ class BDD100K:
                         Right_tmp_X = j
                         find_right_tmp_x = True
                 
-                print(f"find_left_tmp_x:{find_left_tmp_x}")
-                print(f"find_right_tmp_x:{find_right_tmp_x}")
+                # print(f"find_left_tmp_x:{find_left_tmp_x}")
+                # print(f"find_right_tmp_x:{find_right_tmp_x}")
                 tmp_main_lane_width = abs(Right_tmp_X - Left_tmp_X)
                 if tmp_main_lane_width>main_lane_width:
                     main_lane_width = tmp_main_lane_width
@@ -563,10 +588,12 @@ class BDD100K:
             #             update_right_x=True
 
             Middle_X = int((Left_X + Right_X)/2.0)
+            Middle_Y = int(min_final_2)
+            DCA_W = abs(Right_X - Left_X)
+            DCA_H = abs(int(min_final_2 - Search_line_H+1))
+            # print(f"update_right_x:{update_right_x}")
 
-            print(f"update_right_x:{update_right_x}")
-
-            print(f"line Y :{Search_line_H} Left_X:{Left_X}, Right_X:{Right_X} Middle_X:{Middle_X}")
+            # print(f"line Y :{Search_line_H} Left_X:{Left_X}, Right_X:{Right_X} Middle_X:{Middle_X}")
             
             # if self.show_im:
             if True:
@@ -576,10 +603,13 @@ class BDD100K:
                 thickness = 4
                 # search line
                 cv2.line(im_dri_cm, start_point, end_point, color, thickness)
+                cv2.line(im, start_point, end_point, color, thickness)
                 # left X
                 cv2.circle(im_dri_cm,(Left_X,Search_line_H), 10, (0, 255, 255), 3)
+                cv2.circle(im,(Left_X,Search_line_H), 10, (0, 255, 255), 3)
                 # right X
                 cv2.circle(im_dri_cm,(Right_X,Search_line_H), 10, (255, 0, 255), 3)
+                cv2.circle(im,(Right_X,Search_line_H), 10, (255, 0, 255), 3)
 
                 # middle vertical line
                 start_point = (Middle_X,0)
@@ -587,9 +617,16 @@ class BDD100K:
                 color = (255,127,0)
                 thickness = 4
                 cv2.line(im_dri_cm, start_point, end_point, color, thickness)
+                cv2.line(im, start_point, end_point, color, thickness)
 
+                # DCA Bounding Box
+                cv2.rectangle(im_dri_cm, (Left_X, min_final_2), (Right_X, Search_line_H), (0,255,0) , 3, cv2.LINE_AA)
+                cv2.rectangle(im, (Left_X, min_final_2), (Right_X, Search_line_H), (0,255,0) , 3, cv2.LINE_AA)
                 cv2.imshow("drivable image",im_dri_cm)
+                cv2.imshow("image",im)
                 cv2.waitKey()
+
+        return (Middle_X,Middle_Y,DCA_W,DCA_H),h,w
 
 
             
@@ -610,6 +647,7 @@ def get_args():
     parser.add_argument('-savetxtdir','--save-txtdir',help='save image directory',\
                         default="/home/ali/Projects/datasets/BDD100K_Train_VLA_label_Txt_h100_2023-11-24")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
+    parser.add_argument('-dcalabel','--dca-label',type=int,help='DCA label',default=13)
     parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
 
     parser.add_argument('-datatype','--data-type',help='data type',default="train")
