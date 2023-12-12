@@ -546,7 +546,9 @@ class BDD100K:
             im_dri = cv2.imread(drivable_mask_path)
             h,w = im_dri.shape[0],im_dri.shape[1]
             # print(f"h:{h}, w:{w}")
-
+        if not os.path.exists(detection_path):
+            print(f"{detection_path} is not exists !! PASS~~~")
+            return (None,None,None,None),None,None
 
         min_final,index = self.Get_Min_y_In_Drivable_Area(drivable_path)    
         min_final_2 = self.Find_Min_Y_Among_All_Vehicle_Bounding_Boxes(min_final,detection_path,h,w)
