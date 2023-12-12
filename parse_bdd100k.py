@@ -109,13 +109,13 @@ class BDD100K:
             drivable_img = cv2.imread(drivable_path)
             return int(drivable_img.shape[0]/2.0)
         else:
-            print("drivable_path exists!")
+            # print("drivable_path exists!")
             drivable_img = cv2.imread(drivable_path)
             if self.show_im:
                 cv2.imshow("drivable",drivable_img)
                 cv2.waitKey(200)
             drivable_h,drivable_w = drivable_img.shape[0],drivable_img.shape[1]
-            print(f"drivable_h:{drivable_h},drivable_w:{drivable_w}")
+            # print(f"drivable_h:{drivable_h},drivable_w:{drivable_w}")
             p1_w =  int(drivable_w / 3.0)
             p2_w =  int(drivable_w / 2.0)
             p3_w =  int( (drivable_w*2.0) / 3.0)
@@ -150,7 +150,7 @@ class BDD100K:
                 else:
                     y+=1
 
-            print(f"p1y:{p1y},p2y:{p2y},p3y:{p3y}")
+            # print(f"p1y:{p1y},p2y:{p2y},p3y:{p3y}")
             min,index = self.find_min_value(p1y,p2y,p3y)
             if min==0:
                 # print(f"min={min} special case~~~~~")
@@ -160,14 +160,14 @@ class BDD100K:
                 #     min,index = self.find_max_value(p1y,p2y,p3y)
                 min=None
                     
-            print(f"min = {min}, index={index}")
+            # print(f"min = {min}, index={index}")
 
             return min,index
         
         
             
     def Find_Min_Y_Among_All_Vehicle_Bounding_Boxes(self,min,detection_path,img_h,img_w):
-        print(f"h:{img_h} w:{img_w}")
+        # print(f"h:{img_h} w:{img_w}")
         min_rea = 999999
         find_min_area=False
         min_x=99999
@@ -185,21 +185,21 @@ class BDD100K:
                 h = int(float(line.split(" ")[4])*img_h)
                 #print(f"{la} {x} {y} {w} {h}")
                 if w*h < min_rea and int(la) in self.wanted_label_list:
-                    print(f"w*h={w*h},min_rea={min_rea},x:{x},y:{y}")
+                    # print(f"w*h={w*h},min_rea={min_rea},x:{x},y:{y}")
                     min_rea = w*h
                     find_min_area=True
-                    print(f"find_min_area :{find_min_area} ")
+                    # print(f"find_min_area :{find_min_area} ")
                     
                 if min is not None:
                     if int(la) in self.wanted_label_list and find_min_area:
-                        print(f"y:{y} min:{min}")
+                        # print(f"y:{y} min:{min}")
                         min=y
                         min_x=x
                         min_w=w
                         min_h=h
                 else:
                     if int(la) in self.wanted_label_list and find_min_area:
-                        print(f"y:{y} min:{min}")
+                        # print(f"y:{y} min:{min}")
                         min=y
                         min_x=x
                         min_w=w
@@ -231,10 +231,10 @@ class BDD100K:
         else:
             final_wanted_img_count = len(im_path_list)
 
-        print(f"final_wanted_img_count = {final_wanted_img_count}")
+        # print(f"final_wanted_img_count = {final_wanted_img_count}")
         min_final_2 = None
         for i in range(final_wanted_img_count):
-            print(f"{i}:{im_path_list[i]}")
+            # print(f"{i}:{im_path_list[i]}")
             drivable_path,lane_path,detection_path = self.parse_path(im_path_list[i],type=self.data_type)
             #print(f"drivable_path:{drivable_path}, \n lane_path:{lane_path}")
             if not os.path.exists(detection_path):
@@ -293,11 +293,11 @@ class BDD100K:
             h,w = img.shape[0],img.shape[1]
 
             min_final,index = self.Get_Min_y_In_Drivable_Area(drivable_path)
-            print(f"min_final = {min_final}")
+            # print(f"min_final = {min_final}")
             #input()
             min_final_2 = self.Find_Min_Y_Among_All_Vehicle_Bounding_Boxes(min_final,detection_path,h,w)
 
-            print(f"min_final_2 :{min_final_2}")
+            # print(f"min_final_2 :{min_final_2}")
             
             success = self.Add_VLA_Yolo_Txt_Label(min_final_2,detection_path,h,w,im_path_list[i])
             
@@ -484,17 +484,46 @@ class BDD100K:
             print(f"{i}:{im_path_list[i]}")
             xywh,h,w = self.Get_DCA_XYWH(im_path_list[i])
 
-            self.Add_DCA_Yolo_Txt_Label(xywh,detection_path,h,w,im_path_list[i])
+            success = self.Add_DCA_Yolo_Txt_Label(xywh,detection_path,h,w,im_path_list[i])
             
     def Add_DCA_Yolo_Txt_Label(self,xywh,detection_path,h,w,im_path):
+        success = 0
         x = float((int(float(xywh[0]/w)*1000000))/1000000)
         y = float((int(float(xywh[1]/h)*1000000))/1000000)
         w = float((int(float(xywh[2]/w)*1000000))/1000000)
         h = float((int(float(xywh[3]/h)*1000000))/1000000)
         la = self.dca_label
         
-        print(f"{la}:{x}:{y}:{w}:{h}")
+        DCA_lxywh = str(la) + " " \
+                    +str(x) + " " \
+                    +str(y) + " " \
+                    + str(w) + " " \
+                    + str(h) 
+        
+        if not os.path.exists(self.save_txtdir):
+            os.makedirs(self.save_txtdir,exist_ok=True)
 
+        label_txt_file = detection_path.split(os.sep)[-1]
+        save_label_path = os.path.join(self.save_txtdir,label_txt_file)
+        
+        # Copy the original label.txt into the save_label_path
+        if not os.path.exists(label_txt_file):
+            shutil.copy(detection_path,save_label_path)
+        else:
+            print(f"File exists ,PASS! : {save_label_path}")
+
+        if self.save_img:
+            shutil.copy(im_path,self.save_txtdir)
+
+        
+        # Add DCA label into Yolo label.txt
+        with open(save_label_path,'a') as f:
+            f.write(DCA_lxywh)
+
+        # print(f"{la}:{x}:{y}:{w}:{h}")
+        success = 1
+
+        return success
 
     def Get_DCA_XYWH(self,im_path):
         '''
@@ -511,7 +540,7 @@ class BDD100K:
         if os.path.exists(drivable_path):
             im_dri = cv2.imread(drivable_mask_path)
             h,w = im_dri.shape[0],im_dri.shape[1]
-            print(f"h:{h}, w:{w}")
+            # print(f"h:{h}, w:{w}")
 
 
         min_final,index = self.Get_Min_y_In_Drivable_Area(drivable_path)    
@@ -588,15 +617,15 @@ class BDD100K:
             #             update_right_x=True
 
             Middle_X = int((Left_X + Right_X)/2.0)
-            Middle_Y = int(min_final_2)
+            Middle_Y = int((min_final_2 + Search_line_H) / 2.0)
             DCA_W = abs(Right_X - Left_X)
             DCA_H = abs(int(min_final_2 - Search_line_H+1))
             # print(f"update_right_x:{update_right_x}")
 
             # print(f"line Y :{Search_line_H} Left_X:{Left_X}, Right_X:{Right_X} Middle_X:{Middle_X}")
             
-            # if self.show_im:
-            if True:
+            if self.show_im:
+            # if True:
                 start_point = (0,Search_line_H)
                 end_point = (w,Search_line_H)
                 color = (255,0,0)
@@ -644,14 +673,14 @@ def get_args():
                         default="/home/ali/Projects/datasets/bdd100k_data_0.9")
 
 
-    parser.add_argument('-savetxtdir','--save-txtdir',help='save image directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Train_VLA_label_Txt_h100_2023-11-24")
+    parser.add_argument('-savetxtdir','--save-txtdir',help='save txt directory',\
+                        default="/home/ali/Projects/datasets/BDD100K_Train_DCA_label_Txt_2023-12-12")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
     parser.add_argument('-dcalabel','--dca-label',type=int,help='DCA label',default=13)
-    parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
+    parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=True)
 
     parser.add_argument('-datatype','--data-type',help='data type',default="train")
-    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=5000)
+    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=70000)
 
 
 
