@@ -208,6 +208,50 @@ class BDD100K:
             min = int(img_h/2.0)
         return min
         #return min,min_x,min_w,min_h
+    
+
+    def Find_Min_Y_Among_All_Vehicle_Bounding_Boxes_Ver2(self,min,detection_path,img_h,img_w):
+        # print(f"h:{img_h} w:{img_w}")
+        min_rea = 999999
+        find_min_area=False
+        min_x=99999
+        min_w=99999
+        min_h=99999
+        with open(detection_path,"r") as f:
+            lines = f.readlines()
+            for line in lines:
+                find_min_area=False
+                #print(line)
+                la = line.split(" ")[0]
+                x = int(float(line.split(" ")[1])*img_w)
+                y = int(float(line.split(" ")[2])*img_h)
+                w = int(float(line.split(" ")[3])*img_w)
+                h = int(float(line.split(" ")[4])*img_h)
+                #print(f"{la} {x} {y} {w} {h}")
+                if w*h < min_rea and int(la) in self.wanted_label_list:
+                    # print(f"w*h={w*h},min_rea={min_rea},x:{x},y:{y}")
+                    min_rea = w*h
+                    find_min_area=True
+                    # print(f"find_min_area :{find_min_area} ")
+                    
+                if min is not None:
+                    if int(la) in self.wanted_label_list and find_min_area:
+                        # print(f"y:{y} min:{min}")
+                        min=y
+                        min_x=x
+                        min_w=w
+                        min_h=h
+                else:
+                    if int(la) in self.wanted_label_list and find_min_area:
+                        # print(f"y:{y} min:{min}")
+                        min=y
+                        min_x=x
+                        min_w=w
+                        min_h=h
+        if min is None:
+            min = int(img_h/2.0)
+        return (min,min_x,min_w,min_h)
+        #return min,min_x,min_w,min_h
 
     def Get_Vanish_Area(self):
         '''
@@ -453,7 +497,7 @@ class BDD100K:
             
         return NotImplemented
     
-    def Get_DCA_Yolo_Txt_Labels(self):
+    def Get_DCA_Yolo_Txt_Labels(self, version=1):
         '''
             func: 
                 Get Drivable Center Area
@@ -482,7 +526,14 @@ class BDD100K:
         for i in range(final_wanted_img_count):
             drivable_path,drivable_mask_path,lane_path,detection_path = self.parse_path_ver2(im_path_list[i],type=self.data_type)
             print(f"{i}:{im_path_list[i]}")
-            xywh,h,w = self.Get_DCA_XYWH(im_path_list[i])
+            if version==1:
+                xywh,h,w = self.Get_DCA_XYWH(im_path_list[i])
+            elif version==2:
+                xywh,h,w = self.Get_DCA_XYWH_Ver2(im_path_list[i])
+            else:
+                print("No this version , only support verson=0 : DCA include main lane drivable area, \
+                      version 1 : DCA include vanish point, sky and drivable area")
+                return NotImplemented
 
             success = self.Add_DCA_Yolo_Txt_Label(xywh,detection_path,h,w,im_path_list[i])
             
@@ -663,10 +714,161 @@ class BDD100K:
                 cv2.waitKey()
 
         return (Middle_X,Middle_Y,DCA_W,DCA_H),h,w
+    
 
+    def Get_DCA_XYWH_Ver2(self,im_path):
+        '''
+        BDD100K Drivable map label :
+        0: Main Lane
+        1: Alter Lane
+        2: BackGround
 
+        Purpose : Get the bounding box that include below:
+                    1. Sky
+                    2. Vanish point
+                    3. Drivable area of main lane
+                and this bounding box information xywh for detection label (YOLO label.txt)
+        input parameter : 
+                    im_path : image directory path
+        output :
+                    (Middle_X,Middle_Y,DCA_W,DCA_H),h,w
+
+                    Middle_X : bounding box center X
+                    Middle_Y : bounding box center Y
+                    DCA_W    : bounding box W
+                    DCA_H    : bounding box H
+                    h : image height
+                    w : image width
+        '''
+        
+        drivable_path,drivable_mask_path,lane_path,detection_path = self.parse_path_ver2(im_path,type=self.data_type)
+
+        h = 0
+        w = 0
+        if os.path.exists(drivable_path):
+            im_dri = cv2.imread(drivable_mask_path)
+            h,w = im_dri.shape[0],im_dri.shape[1]
+            # print(f"h:{h}, w:{w}")
+        if not os.path.exists(detection_path):
+            print(f"{detection_path} is not exists !! PASS~~~")
+            return (None,None,None,None),None,None
+
+        min_final,index = self.Get_Min_y_In_Drivable_Area(drivable_path)    
+        VL = self.Find_Min_Y_Among_All_Vehicle_Bounding_Boxes_Ver2(min_final,detection_path,h,w)
+        VL_Y,VL_X,VL_W,VL_H = VL
+        print(f"VL_Y:{VL_Y},VL_X:{VL_X},VL_W:{VL_W},VL_H:{VL_H}")
+        dri_map = {"MainLane": 0, "AlterLane": 1, "BackGround":2}
+        
+        if os.path.exists(drivable_path):
             
-        return NotImplemented
+            im_dri_cm = cv2.imread(drivable_path)
+            im = cv2.imread(im_path)
+
+            Lowest_H = 0
+            Search_line_H = 0
+            Left_tmp_X = 0
+            Right_tmp_X = 0
+            main_lane_width = 9999
+            find_left_tmp_x = False
+            find_right_tmp_x = False
+            Final_Left_X = 0
+            Final_Right_X = 0
+            Top_Y = 0
+            temp_y = 0
+            find_top_y = False
+            ## Find the lowest X of Main lane drivable map
+            for i in range(int(h)):
+                find_left_tmp_x = False
+                find_right_tmp_x = False
+                for j in range(int(w)):
+
+                    if int(im_dri[i][j][0]) == dri_map["MainLane"]:
+                        if i>Lowest_H:
+                            Lowest_H = i
+                        if find_top_y==False:
+                            Top_Y = i
+                            find_top_y = True
+                    if int(im_dri[i][j][0]) == dri_map["MainLane"] and find_left_tmp_x==False:
+                        Left_tmp_X = j
+                        find_left_tmp_x = True
+
+                    if int(im_dri[i][j][0]) == dri_map["BackGround"] and find_right_tmp_x==False and find_left_tmp_x==True:
+                        Right_tmp_X = j
+                        find_right_tmp_x = True
+                        temp_y = i
+                
+                # print(f"find_left_tmp_x:{find_left_tmp_x}")
+                # print(f"find_right_tmp_x:{find_right_tmp_x}")
+                tmp_main_lane_width = abs(Right_tmp_X - Left_tmp_X)
+
+                ## Find the Min Main Lane Width
+                if tmp_main_lane_width<main_lane_width\
+                    and find_left_tmp_x==True \
+                    and find_right_tmp_x==True \
+                    and tmp_main_lane_width>=150 \
+                    and abs(i-Top_Y)<100:
+                 
+
+                    main_lane_width = tmp_main_lane_width
+                    Final_Left_X = Left_tmp_X
+                    Final_Right_X = Right_tmp_X
+                    Search_line_H = i
+                     
+
+            # Search_line_H = int(Lowest_H - 80);
+
+            # Left_X = w
+            # update_left_x = False
+            # Right_X = 0
+            # update_right_x = False
+
+            # Left_X = int(VL_X - (VL_W * 2.0)) if VL_X - (VL_W * 2.0)>0 else 0
+            # Right_X = int(VL_X + (VL_W * 2.0)) if VL_X + (VL_W * 2.0)<w-1 else w-1
+            Left_X = Final_Left_X
+            Right_X = Final_Right_X
+
+        
+            Middle_X = int((Left_X + Right_X)/2.0)
+            Middle_Y = int((h) / 2.0)
+            DCA_W = abs(Right_X - Left_X)
+            DCA_H = abs(int(h-1))
+            # print(f"update_right_x:{update_right_x}")
+
+            print(f"line Y :{Search_line_H} Left_X:{Left_X}, Right_X:{Right_X} Middle_X:{Middle_X}")
+            
+            if self.show_im:
+            # if True:
+                # Search_line_H = VL_Y
+                start_point = (0,Search_line_H)
+                end_point = (w,Search_line_H)
+                color = (255,0,0)
+                thickness = 4
+                # search line
+                cv2.line(im_dri_cm, start_point, end_point, color, thickness)
+                cv2.line(im, start_point, end_point, color, thickness)
+                # left X
+                cv2.circle(im_dri_cm,(Left_X,Search_line_H), 10, (0, 255, 255), 3)
+                cv2.circle(im,(Left_X,Search_line_H), 10, (0, 255, 255), 3)
+                # right X
+                cv2.circle(im_dri_cm,(Right_X,Search_line_H), 10, (255, 0, 255), 3)
+                cv2.circle(im,(Right_X,Search_line_H), 10, (255, 0, 255), 3)
+
+                # middle vertical line
+                start_point = (Middle_X,0)
+                end_point = (Middle_X,h)
+                color = (255,127,0)
+                thickness = 4
+                cv2.line(im_dri_cm, start_point, end_point, color, thickness)
+                cv2.line(im, start_point, end_point, color, thickness)
+
+                # DCA Bounding Box
+                cv2.rectangle(im_dri_cm, (Left_X, 0), (Right_X, h-1), (0,255,0) , 3, cv2.LINE_AA)
+                cv2.rectangle(im, (Left_X, 0), (Right_X, h-1), (0,255,0) , 3, cv2.LINE_AA)
+                cv2.imshow("drivable image",im_dri_cm)
+                cv2.imshow("image",im)
+                cv2.waitKey()
+
+        return (Middle_X,Middle_Y,DCA_W,DCA_H),h,w
 
 
 def get_args():
@@ -681,9 +883,9 @@ def get_args():
 
 
     parser.add_argument('-savetxtdir','--save-txtdir',help='save txt directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Train_DCA_label_Txt_2023-12-14")
+                        default="/home/ali/Projects/datasets/BDD100K_Train_DCA_label_Txt_2023-12-16")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
-    parser.add_argument('-dcalabel','--dca-label',type=int,help='DCA label',default=13)
+    parser.add_argument('-dcalabel','--dca-label',type=int,help='DCA label',default=14)
     parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
 
     parser.add_argument('-datatype','--data-type',help='data type',default="train")
@@ -711,6 +913,8 @@ if __name__=="__main__":
     bk = BDD100K(args)
     #bk.Get_Vanish_Area()
     # bk.Add_Vanish_Line_Area_Yolo_Txt_Labels()
-    bk.Get_DCA_Yolo_Txt_Labels()
+    # bk.Get_DCA_Yolo_Txt_Labels()
+    bk.Get_DCA_Yolo_Txt_Labels(version=2)
+
 
 
