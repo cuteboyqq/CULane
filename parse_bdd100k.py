@@ -540,21 +540,21 @@ class BDD100K:
             
     def Add_DCA_Yolo_Txt_Label(self,xywh,detection_path,h,w,im_path):
         success = 0
-        print(f"xywh[0]:{xywh[0]},xywh[1]:{xywh[1]},xywh[2]:{xywh[2]},xywh[3]:{xywh[3]},w:{w},h:{h}")
+        # print(f"xywh[0]:{xywh[0]},xywh[1]:{xywh[1]},xywh[2]:{xywh[2]},xywh[3]:{xywh[3]},w:{w},h:{h}")
         if os.path.exists(detection_path):
             x = float((int(float(xywh[0]/w)*1000000))/1000000)
             y = float((int(float(xywh[1]/h)*1000000))/1000000)
             w = float((int(float(xywh[2]/w)*1000000))/1000000)
             h = float((int(float(xywh[3]/h)*1000000))/1000000)
             la = self.dca_label
-            print(f"la = {la}")
+            # print(f"la = {la}")
             DCA_lxywh = str(la) + " " \
                         +str(x) + " " \
                         +str(y) + " " \
                         + str(w) + " " \
                         + str(h) 
             
-            print(f"x:{x},y:{y},w:{w},h:{h}")
+            # print(f"x:{x},y:{y},w:{w},h:{h}")
             if not os.path.exists(self.save_txtdir):
                 os.makedirs(self.save_txtdir,exist_ok=True)
 
@@ -760,7 +760,7 @@ class BDD100K:
         min_final,index = self.Get_Min_y_In_Drivable_Area(drivable_path)    
         VL = self.Find_Min_Y_Among_All_Vehicle_Bounding_Boxes_Ver2(min_final,detection_path,h,w)
         VL_Y,VL_X,VL_W,VL_H = VL
-        print(f"VL_Y:{VL_Y},VL_X:{VL_X},VL_W:{VL_W},VL_H:{VL_H}")
+        # print(f"VL_Y:{VL_Y},VL_X:{VL_X},VL_W:{VL_W},VL_H:{VL_H}")
         dri_map = {"MainLane": 0, "AlterLane": 1, "BackGround":2}
         
         if os.path.exists(drivable_path):
@@ -846,7 +846,7 @@ class BDD100K:
                 DCA_H = abs(int(h-1))
                 # print(f"update_right_x:{update_right_x}")
 
-                print(f"line Y :{Search_line_H} Left_X:{Left_X}, Right_X:{Right_X} Middle_X:{Middle_X}")
+                # print(f"line Y :{Search_line_H} Left_X:{Left_X}, Right_X:{Right_X} Middle_X:{Middle_X}")
             
                 if self.show_im:
                 # if True:
@@ -885,7 +885,7 @@ class BDD100K:
                 DCA_W = None
                 DCA_H = None
         
-        print(f"Middle_X:{Middle_X},Middle_Y:{Middle_Y},DCA_W:{DCA_W},DCA_H:{DCA_H}")
+        # print(f"Middle_X:{Middle_X},Middle_Y:{Middle_Y},DCA_W:{DCA_W},DCA_H:{DCA_H}")
         return (Middle_X,Middle_Y,DCA_W,DCA_H),h,w
 
 
@@ -901,13 +901,13 @@ def get_args():
 
 
     parser.add_argument('-savetxtdir','--save-txtdir',help='save txt directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Train_DCA_label_Txt_2023-12-16")
+                        default="/home/ali/Projects/datasets/BDD100K_Train_VPA_label_Txt_2023-12-16")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
     parser.add_argument('-dcalabel','--dca-label',type=int,help='DCA label',default=14)
-    parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=True)
+    parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
 
     parser.add_argument('-datatype','--data-type',help='data type',default="train")
-    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=500)
+    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=70000)
 
 
 
