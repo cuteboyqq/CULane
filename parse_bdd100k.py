@@ -526,18 +526,146 @@ class BDD100K:
         for i in range(final_wanted_img_count):
             drivable_path,drivable_mask_path,lane_path,detection_path = self.parse_path_ver2(im_path_list[i],type=self.data_type)
             print(f"{i}:{im_path_list[i]}")
+            im = cv2.imread(im_path_list[i])
+            h,w = im.shape[0],im.shape[1]
             if version==1:
-                xywh,h,w = self.Get_DCA_XYWH(im_path_list[i])
+                xywh,h,w = self.Get_DCA_XYWH(im_path_list[i],return_type=1)
             elif version==2:
-                xywh,h,w = self.Get_DCA_XYWH_Ver2(im_path_list[i])
+                xywh,h,w = self.Get_DCA_XYWH_Ver2(im_path_list[i],return_type=1)
+            elif version==3:
+                Down = self.Get_DCA_XYWH(im_path_list[i],return_type=2) #Down_Left_X,Down_Right_X,Down_Y
+                Up = self.Get_DCA_XYWH_Ver2(im_path_list[i],return_type=2)
+                if Down[0] is not None and Up[0] is not None:
+                    VP_x,VP_y = self.Get_VPA(im_path_list[i],Up,Down)
+                else:
+                    print("None value, return !!")
+                    continue
             else:
                 print("No this version , only support verson=0 : DCA include main lane drivable area, \
                       version 1 : DCA include vanish point, sky and drivable area")
                 return NotImplemented
-            x,y = xywh[0],xywh[1]
+            if version == 1 or version == 2:
+                x,y = xywh[0],xywh[1]
+            elif version == 3:
+                x, y  = VP_x, VP_y
+                xywh = (VP_x,VP_y,h,w)
             if x is not None and y is not None:
                 success = self.Add_DCA_Yolo_Txt_Label(xywh,detection_path,h,w,im_path_list[i])
-            
+
+    def Get_VPA(self,im_path,Up,Down):
+        drivable_path,drivable_mask_path,lane_path,detection_path = self.parse_path_ver2(im_path,type=self.data_type)
+        im_dri_cm = cv2.imread(drivable_path)
+        im = cv2.imread(im_path)
+        h,w = im.shape[0],im.shape[1]
+        L_X1,L_Y1 = Up[0],Up[2]
+        L_X2,L_Y2 = Down[0],Down[2]
+
+        p1,p2 = ( L_X1,L_Y1 ), (L_X2,L_Y2)
+        print(f"(L_X1,L_Y1) = ({L_X1},{L_Y1})")
+        print(f"(L_X2,L_Y2) = ({L_X2},{L_Y2})")
+        R_X1,R_Y1 = Up[1],Up[2]
+        R_X2,R_Y2 = Down[1],Down[2]
+
+        p3,p4 = (R_X1,R_Y1),(R_X2,R_Y2)
+        print(f"(R_X1,R_Y1) = ({R_X1},{R_Y1})")
+        print(f"(R_X2,R_Y2) = ({R_X2},{R_Y2})")
+        VP = self.Get_VP(p1,p2,p3,p4)
+
+        VP_X,VP_Y = VP[0],VP[1]
+        
+        Left_X = VP_X - 100 if VP_X -100>0 else 0
+        Right_X = VP_X + 100 if VP_X + 100 < w-1 else w-1
+        Search_line_H = VP_Y
+        if self.show_im:
+            # if True:
+             
+                color = (255,0,0)
+                thickness = 4
+                # search line
+                # Vanish Point
+                cv2.circle(im_dri_cm,(VP_X,VP_Y), 10, (0, 255, 255), 3)
+                cv2.circle(im,(VP_X,VP_Y), 10, (0, 255, 255), 3)
+
+                # Left line
+                start_point = (VP_X,VP_Y)
+                end_point = (L_X2,L_Y2)
+                color = (255,0,127)
+                thickness = 3
+                cv2.line(im_dri_cm, start_point, end_point, color, thickness)
+                cv2.line(im, start_point, end_point, color, thickness)
+
+                # Right line
+                start_point = (VP_X,VP_Y)
+                end_point = (R_X2,R_Y2)
+                color = (255,127,0)
+                thickness = 3
+                cv2.line(im_dri_cm, start_point, end_point, color, thickness)
+                cv2.line(im, start_point, end_point, color, thickness)
+
+                # left X
+                cv2.circle(im_dri_cm,(Left_X,Search_line_H), 10, (0, 255, 255), 3)
+                cv2.circle(im,(Left_X,Search_line_H), 10, (0, 255, 255), 3)
+                # right X
+                cv2.circle(im_dri_cm,(Right_X,Search_line_H), 10, (255, 0, 255), 3)
+                cv2.circle(im,(Right_X,Search_line_H), 10, (255, 0, 255), 3)
+
+                # middle vertical line
+                start_point = (VP_X,0)
+                end_point = (VP_X,h-1)
+                color = (255,127,0)
+                thickness = 4
+                cv2.line(im_dri_cm, start_point, end_point, color, thickness)
+                cv2.line(im, start_point, end_point, color, thickness)
+
+                # DCA Bounding Box
+                cv2.rectangle(im_dri_cm, (Left_X, 0), (Right_X, h-1), (0,255,0) , 3, cv2.LINE_AA)
+                cv2.rectangle(im, (Left_X, 0), (Right_X, h-1), (0,255,0) , 3, cv2.LINE_AA)
+                cv2.imshow("drivable image",im_dri_cm)
+                cv2.imshow("image",im)
+                cv2.waitKey()
+
+
+        return VP_X,VP_Y
+
+    def Get_VP(self,p1,p2,p3,p4):
+        '''
+        Purpose :
+                Get the intersection point of two line, and it is named Vanish point
+        y = a*x + b
+        -->
+            y = L_a * x + L_b
+            y = R_a * x + R_b
+        
+        input :
+                line 1 point : p1,p2
+                line 2 point : p3,p4
+        output : 
+                Vanish point : (VL_X,VL_Y)
+        '''
+        # Get left line  y = L_a * x + L_b
+        if p1[0]-p2[0] != 0:
+            L_a = float((p1[1]-p2[1])/(p1[0]-p2[0]))
+            L_b = p1[1] - (L_a * p1[0])
+        else:
+            L_a = float((p1[1]-p2[1])/(1.0))
+            L_b = p1[1] - (L_a * p1[0])
+
+        # Get right line y = R_a * x + R_b
+        if p3[0]-p4[0]!=0:
+            R_a = float((p3[1]-p4[1])/(p3[0]-p4[0]))
+            R_b = p3[1] - (R_a * p3[0])
+        else:
+            R_a = float((p3[1]-p4[1])/(1.0))
+            R_b = p3[1] - (R_a * p3[0])
+
+        # Get the Vanish Point
+        VP_X = int(float((R_b - L_b)/(L_a - R_a)))
+        VP_Y = int(float(L_a * VP_X) + L_b)
+
+        return (VP_X,VP_Y)
+        return NotImplemented
+
+
     def Add_DCA_Yolo_Txt_Label(self,xywh,detection_path,h,w,im_path):
         success = 0
         # print(f"xywh[0]:{xywh[0]},xywh[1]:{xywh[1]},xywh[2]:{xywh[2]},xywh[3]:{xywh[3]},w:{w},h:{h}")
@@ -585,7 +713,7 @@ class BDD100K:
 
         return success
 
-    def Get_DCA_XYWH(self,im_path):
+    def Get_DCA_XYWH(self,im_path,return_type=1):
         '''
         BDD100K Drivable map label :
         0: Main Lane
@@ -686,7 +814,7 @@ class BDD100K:
 
             # print(f"line Y :{Search_line_H} Left_X:{Left_X}, Right_X:{Right_X} Middle_X:{Middle_X}")
             
-            if self.show_im:
+            if self.show_im and return_type==1:
             # if True:
                 start_point = (0,Search_line_H)
                 end_point = (w,Search_line_H)
@@ -716,11 +844,13 @@ class BDD100K:
                 cv2.imshow("drivable image",im_dri_cm)
                 cv2.imshow("image",im)
                 cv2.waitKey()
-
-        return (Middle_X,Middle_Y,DCA_W,DCA_H),h,w
+        if return_type == 1:
+            return (Middle_X,Middle_Y,DCA_W,DCA_H),h,w
+        elif return_type == 2:
+            return (Left_X,Right_X,Search_line_H)
     
 
-    def Get_DCA_XYWH_Ver2(self,im_path):
+    def Get_DCA_XYWH_Ver2(self,im_path,return_type=1):
         '''
         BDD100K Drivable map label :
         0: Main Lane
@@ -848,7 +978,7 @@ class BDD100K:
 
                 # print(f"line Y :{Search_line_H} Left_X:{Left_X}, Right_X:{Right_X} Middle_X:{Middle_X}")
             
-                if self.show_im:
+                if self.show_im and return_type==1:
                 # if True:
                     # Search_line_H = VL_Y
                     start_point = (0,Search_line_H)
@@ -886,8 +1016,10 @@ class BDD100K:
                 DCA_H = None
         
         # print(f"Middle_X:{Middle_X},Middle_Y:{Middle_Y},DCA_W:{DCA_W},DCA_H:{DCA_H}")
-        return (Middle_X,Middle_Y,DCA_W,DCA_H),h,w
-
+        if return_type==1:
+            return (Middle_X,Middle_Y,DCA_W,DCA_H),h,w
+        elif return_type==2:
+            return (Left_X,Right_X,Search_line_H)
 
 def get_args():
     import argparse
@@ -901,7 +1033,7 @@ def get_args():
 
 
     parser.add_argument('-savetxtdir','--save-txtdir',help='save txt directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Train_VPA_label_Txt_2023-12-16")
+                        default="/home/ali/Projects/datasets/BDD100K_Train_VPA_label_Txt_2023-12-16-Ver2")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
     parser.add_argument('-dcalabel','--dca-label',type=int,help='DCA label',default=14)
     parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
