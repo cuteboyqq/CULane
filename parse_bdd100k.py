@@ -534,24 +534,27 @@ class BDD100K:
                 print("No this version , only support verson=0 : DCA include main lane drivable area, \
                       version 1 : DCA include vanish point, sky and drivable area")
                 return NotImplemented
-
-            success = self.Add_DCA_Yolo_Txt_Label(xywh,detection_path,h,w,im_path_list[i])
+            x,y = xywh[0],xywh[1]
+            if x is not None and y is not None:
+                success = self.Add_DCA_Yolo_Txt_Label(xywh,detection_path,h,w,im_path_list[i])
             
     def Add_DCA_Yolo_Txt_Label(self,xywh,detection_path,h,w,im_path):
         success = 0
+        print(f"xywh[0]:{xywh[0]},xywh[1]:{xywh[1]},xywh[2]:{xywh[2]},xywh[3]:{xywh[3]},w:{w},h:{h}")
         if os.path.exists(detection_path):
             x = float((int(float(xywh[0]/w)*1000000))/1000000)
             y = float((int(float(xywh[1]/h)*1000000))/1000000)
             w = float((int(float(xywh[2]/w)*1000000))/1000000)
             h = float((int(float(xywh[3]/h)*1000000))/1000000)
             la = self.dca_label
-            
+            print(f"la = {la}")
             DCA_lxywh = str(la) + " " \
                         +str(x) + " " \
                         +str(y) + " " \
                         + str(w) + " " \
                         + str(h) 
             
+            print(f"x:{x},y:{y},w:{w},h:{h}")
             if not os.path.exists(self.save_txtdir):
                 os.makedirs(self.save_txtdir,exist_ok=True)
 
@@ -570,6 +573,7 @@ class BDD100K:
             
             # Add DCA label into Yolo label.txt
             with open(save_label_path,'a') as f:
+                f.write("\n")
                 f.write(DCA_lxywh)
 
             # print(f"{la}:{x}:{y}:{w}:{h}")
@@ -776,6 +780,8 @@ class BDD100K:
             Top_Y = 0
             temp_y = 0
             find_top_y = False
+            DCA_W = 0
+            DCA_H = 0
             ## Find the lowest X of Main lane drivable map
             for i in range(int(h)):
                 find_left_tmp_x = False
@@ -806,7 +812,8 @@ class BDD100K:
                     and find_left_tmp_x==True \
                     and find_right_tmp_x==True \
                     and tmp_main_lane_width>=150 \
-                    and abs(i-Top_Y)<100:
+                    and abs(i-Top_Y)<100 \
+                    and abs(i-Top_Y)>50:
                  
 
                     main_lane_width = tmp_main_lane_width
@@ -824,50 +831,61 @@ class BDD100K:
 
             # Left_X = int(VL_X - (VL_W * 2.0)) if VL_X - (VL_W * 2.0)>0 else 0
             # Right_X = int(VL_X + (VL_W * 2.0)) if VL_X + (VL_W * 2.0)<w-1 else w-1
-            Left_X = Final_Left_X
-            Right_X = Final_Right_X
+            if Final_Left_X==0 and Final_Right_X==0:
+                Left_X = None
+                Right_X = None
+            else:
+                Left_X = Final_Left_X
+                Right_X = Final_Right_X
 
-        
-            Middle_X = int((Left_X + Right_X)/2.0)
-            Middle_Y = int((h) / 2.0)
-            DCA_W = abs(Right_X - Left_X)
-            DCA_H = abs(int(h-1))
-            # print(f"update_right_x:{update_right_x}")
 
-            print(f"line Y :{Search_line_H} Left_X:{Left_X}, Right_X:{Right_X} Middle_X:{Middle_X}")
+            if Left_X is not None and Right_X is not None:
+                Middle_X = int((Left_X + Right_X)/2.0)
+                Middle_Y = int((h) / 2.0)
+                DCA_W = abs(Right_X - Left_X)
+                DCA_H = abs(int(h-1))
+                # print(f"update_right_x:{update_right_x}")
+
+                print(f"line Y :{Search_line_H} Left_X:{Left_X}, Right_X:{Right_X} Middle_X:{Middle_X}")
             
-            if self.show_im:
-            # if True:
-                # Search_line_H = VL_Y
-                start_point = (0,Search_line_H)
-                end_point = (w,Search_line_H)
-                color = (255,0,0)
-                thickness = 4
-                # search line
-                cv2.line(im_dri_cm, start_point, end_point, color, thickness)
-                cv2.line(im, start_point, end_point, color, thickness)
-                # left X
-                cv2.circle(im_dri_cm,(Left_X,Search_line_H), 10, (0, 255, 255), 3)
-                cv2.circle(im,(Left_X,Search_line_H), 10, (0, 255, 255), 3)
-                # right X
-                cv2.circle(im_dri_cm,(Right_X,Search_line_H), 10, (255, 0, 255), 3)
-                cv2.circle(im,(Right_X,Search_line_H), 10, (255, 0, 255), 3)
+                if self.show_im:
+                # if True:
+                    # Search_line_H = VL_Y
+                    start_point = (0,Search_line_H)
+                    end_point = (w,Search_line_H)
+                    color = (255,0,0)
+                    thickness = 4
+                    # search line
+                    cv2.line(im_dri_cm, start_point, end_point, color, thickness)
+                    cv2.line(im, start_point, end_point, color, thickness)
+                    # left X
+                    cv2.circle(im_dri_cm,(Left_X,Search_line_H), 10, (0, 255, 255), 3)
+                    cv2.circle(im,(Left_X,Search_line_H), 10, (0, 255, 255), 3)
+                    # right X
+                    cv2.circle(im_dri_cm,(Right_X,Search_line_H), 10, (255, 0, 255), 3)
+                    cv2.circle(im,(Right_X,Search_line_H), 10, (255, 0, 255), 3)
 
-                # middle vertical line
-                start_point = (Middle_X,0)
-                end_point = (Middle_X,h)
-                color = (255,127,0)
-                thickness = 4
-                cv2.line(im_dri_cm, start_point, end_point, color, thickness)
-                cv2.line(im, start_point, end_point, color, thickness)
+                    # middle vertical line
+                    start_point = (Middle_X,0)
+                    end_point = (Middle_X,h)
+                    color = (255,127,0)
+                    thickness = 4
+                    cv2.line(im_dri_cm, start_point, end_point, color, thickness)
+                    cv2.line(im, start_point, end_point, color, thickness)
 
-                # DCA Bounding Box
-                cv2.rectangle(im_dri_cm, (Left_X, 0), (Right_X, h-1), (0,255,0) , 3, cv2.LINE_AA)
-                cv2.rectangle(im, (Left_X, 0), (Right_X, h-1), (0,255,0) , 3, cv2.LINE_AA)
-                cv2.imshow("drivable image",im_dri_cm)
-                cv2.imshow("image",im)
-                cv2.waitKey()
-
+                    # DCA Bounding Box
+                    cv2.rectangle(im_dri_cm, (Left_X, 0), (Right_X, h-1), (0,255,0) , 3, cv2.LINE_AA)
+                    cv2.rectangle(im, (Left_X, 0), (Right_X, h-1), (0,255,0) , 3, cv2.LINE_AA)
+                    cv2.imshow("drivable image",im_dri_cm)
+                    cv2.imshow("image",im)
+                    cv2.waitKey()
+            else:
+                Middle_X = None
+                Middle_Y = None
+                DCA_W = None
+                DCA_H = None
+        
+        print(f"Middle_X:{Middle_X},Middle_Y:{Middle_Y},DCA_W:{DCA_W},DCA_H:{DCA_H}")
         return (Middle_X,Middle_Y,DCA_W,DCA_H),h,w
 
 
@@ -886,14 +904,14 @@ def get_args():
                         default="/home/ali/Projects/datasets/BDD100K_Train_DCA_label_Txt_2023-12-16")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
     parser.add_argument('-dcalabel','--dca-label',type=int,help='DCA label',default=14)
-    parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
+    parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=True)
 
     parser.add_argument('-datatype','--data-type',help='data type',default="train")
-    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=1000)
+    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=500)
 
 
 
-    parser.add_argument('-showim','--show-im',type=bool,help='show images',default=True)
+    parser.add_argument('-showim','--show-im',type=bool,help='show images',default=False)
     parser.add_argument('-showimcrop','--show-imcrop',type=bool,help='show crop images',default=True)
     parser.add_argument('-showvanishline','--show-vanishline',type=bool,help='show vanish line in image',default=False)
     parser.add_argument('-saveimcrop','--save-imcrop',type=bool,help='save  crop images',default=True)
