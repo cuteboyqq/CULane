@@ -531,10 +531,10 @@ class BDD100K:
             if version==1:
                 xywh,h,w = self.Get_DCA_XYWH(im_path_list[i],return_type=1)
             elif version==2:
-                xywh,h,w = self.Get_DCA_XYWH_Ver2(im_path_list[i],return_type=1)
+                xywh,h,w = self.Get_VPA_XYWH(im_path_list[i],return_type=1)
             elif version==3:
                 Down = self.Get_DCA_XYWH(im_path_list[i],return_type=2) #Down_Left_X,Down_Right_X,Down_Y
-                Up = self.Get_DCA_XYWH_Ver2(im_path_list[i],return_type=2)
+                Up = self.Get_VPA_XYWH(im_path_list[i],return_type=2)
                 if Down[0] is not None and Up[0] is not None:
                     VP_x,VP_y = self.Get_VPA(im_path_list[i],Up,Down)
                 else:
@@ -549,8 +549,8 @@ class BDD100K:
             elif version == 3:
                 x, y  = VP_x, VP_y
                 xywh = (VP_x,VP_y,h,w)
-            if x is not None and y is not None:
-                success = self.Add_DCA_Yolo_Txt_Label(xywh,detection_path,h,w,im_path_list[i])
+            
+            success = self.Add_DCA_Yolo_Txt_Label(xywh,detection_path,h,w,im_path_list[i])
 
     def Get_VPA(self,im_path,Up,Down):
         drivable_path,drivable_mask_path,lane_path,detection_path = self.parse_path_ver2(im_path,type=self.data_type)
@@ -668,19 +668,26 @@ class BDD100K:
 
     def Add_DCA_Yolo_Txt_Label(self,xywh,detection_path,h,w,im_path):
         success = 0
+        xywh_not_None = True
+        DCA_lxywh = None
+        if xywh[0] is not None and xywh[1] is not None:
+            xywh_not_None = True
+        else:
+            xywh_not_None = False
         # print(f"xywh[0]:{xywh[0]},xywh[1]:{xywh[1]},xywh[2]:{xywh[2]},xywh[3]:{xywh[3]},w:{w},h:{h}")
         if os.path.exists(detection_path):
-            x = float((int(float(xywh[0]/w)*1000000))/1000000)
-            y = float((int(float(xywh[1]/h)*1000000))/1000000)
-            w = float((int(float(xywh[2]/w)*1000000))/1000000)
-            h = float((int(float(xywh[3]/h)*1000000))/1000000)
-            la = self.dca_label
-            # print(f"la = {la}")
-            DCA_lxywh = str(la) + " " \
-                        +str(x) + " " \
-                        +str(y) + " " \
-                        + str(w) + " " \
-                        + str(h) 
+            if xywh_not_None == True:
+                x = float((int(float(xywh[0]/w)*1000000))/1000000)
+                y = float((int(float(xywh[1]/h)*1000000))/1000000)
+                w = float((int(float(xywh[2]/w)*1000000))/1000000)
+                h = float((int(float(xywh[3]/h)*1000000))/1000000)
+                la = self.dca_label
+                # print(f"la = {la}")
+                DCA_lxywh = str(la) + " " \
+                            +str(x) + " " \
+                            +str(y) + " " \
+                            + str(w) + " " \
+                            + str(h) 
             
             # print(f"x:{x},y:{y},w:{w},h:{h}")
             if not os.path.exists(self.save_txtdir):
@@ -698,11 +705,11 @@ class BDD100K:
             if self.save_img:
                 shutil.copy(im_path,self.save_txtdir)
 
-            
-            # Add DCA label into Yolo label.txt
-            with open(save_label_path,'a') as f:
-                f.write("\n")
-                f.write(DCA_lxywh)
+            if DCA_lxywh is not None:
+                # Add DCA label into Yolo label.txt
+                with open(save_label_path,'a') as f:
+                    f.write("\n")
+                    f.write(DCA_lxywh)
 
             # print(f"{la}:{x}:{y}:{w}:{h}")
             success = 1
@@ -850,8 +857,10 @@ class BDD100K:
             return (Left_X,Right_X,Search_line_H)
     
 
-    def Get_DCA_XYWH_Ver2(self,im_path,return_type=1):
+    def Get_VPA_XYWH(self,im_path,return_type=1):
         '''
+        func: Get VPA XYWH (Vanish Point Area)
+
         BDD100K Drivable map label :
         0: Main Lane
         1: Alter Lane
@@ -1025,21 +1034,21 @@ def get_args():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-imdir','--im-dir',help='image directory',\
-                        default="/home/ali/Projects/datasets/bdd100k_data_0.9/images/100k/train")
+                        default="/home/ali/Projects/datasets/bdd100k_data_0.9/images/100k/val")
     parser.add_argument('-savedir','--save-dir',help='save image directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Train_VLA_label_Txt_h100_2023-11-24")
+                        default="/home/ali/Projects/datasets/BDD100K_Val_VLA_label_Txt_h100_2023-11-24")
     parser.add_argument('-datadir','--data-dir',help='dataset directory',\
                         default="/home/ali/Projects/datasets/bdd100k_data_0.9")
 
 
     parser.add_argument('-savetxtdir','--save-txtdir',help='save txt directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Train_VPA_label_Txt_2023-12-16-Ver2")
+                        default="/home/ali/Projects/datasets/BDD100K_Val_VPA_label_Txt_2023-12-17-Ver2")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
     parser.add_argument('-dcalabel','--dca-label',type=int,help='DCA label',default=14)
     parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
 
-    parser.add_argument('-datatype','--data-type',help='data type',default="train")
-    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=70000)
+    parser.add_argument('-datatype','--data-type',help='data type',default="val")
+    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=10000)
 
 
 
