@@ -60,7 +60,7 @@ class BDD100K:
         detection_path = os.path.join(self.dataset_dir,"labels","detection",type,detection_file)
         return drivable_path,lane_path,detection_path
     
-    def parse_path_ver2(self,path,type="val"):
+    def parse_path_ver2(self,path,type="val",detect_folder="detection-DCA"):
         file = path.split(os.sep)[-1]
         file_name = file.split(".")[0]
         drivable_file  = file_name + ".png"
@@ -69,7 +69,7 @@ class BDD100K:
         drivable_path = os.path.join(self.dataset_dir,"labels","drivable","colormaps",type,drivable_file)
         drivable_mask_path = os.path.join(self.dataset_dir,"labels","drivable","masks",type,drivable_file)
         lane_path = os.path.join(self.dataset_dir,"labels","lane","colormaps",type,lane_file)
-        detection_path = os.path.join(self.dataset_dir,"labels","detection",type,detection_file)
+        detection_path = os.path.join(self.dataset_dir,"labels",detect_folder,type,detection_file)
         return drivable_path,drivable_mask_path,lane_path,detection_path
 
 
@@ -533,10 +533,20 @@ class BDD100K:
             elif version==2:
                 xywh,h,w = self.Get_VPA_XYWH(im_path_list[i],return_type=1)
             elif version==3:
-                Down = self.Get_DCA_XYWH(im_path_list[i],return_type=2) #Down_Left_X,Down_Right_X,Down_Y
-                Up = self.Get_VPA_XYWH(im_path_list[i],return_type=2)
-                if Down[0] is not None and Up[0] is not None:
-                    VP_x,VP_y = self.Get_VPA(im_path_list[i],Up,Down)
+                detection_file = detection_path.split(os.sep)[-1]
+                save_txt_path = os.path.join(self.save_txtdir,detection_file)
+                if os.path.exists(save_txt_path):
+                    print("save_txt_path exists , PASS~~~!!")
+                    success = 1
+                    continue
+                Down = self.Get_DCA_XYWH(im_path_list[i],return_type=2) #(Left_X,Right_X,Search_line_H,min_final_2)
+                Up = self.Get_VPA_XYWH(im_path_list[i],return_type=2) #(Left_X,Right_X,Search_line_H)
+                if Down[0] is not None and Down[1] is not None and Up[0] is not None and Up[1] is not None \
+                    and isinstance(Down[0],int)\
+                    and isinstance(Down[1],int)\
+                    and isinstance(Up[0],int)\
+                    and isinstance(Up[1],int):
+                    VP_x,VP_y,New_W,New_H = self.Get_VPA(im_path_list[i],Up,Down)
                 else:
                     print("None value, return !!")
                     continue
@@ -550,11 +560,13 @@ class BDD100K:
                 x,y = xywh[0],xywh[1]
             elif version == 3:
                 x, y  = VP_x, VP_y
-                xywh = (VP_x,VP_y,h,w)
+                xywh = (VP_x,VP_y,New_W,New_H)
             
             success = self.Add_DCA_Yolo_Txt_Label(xywh,detection_path,h,w,im_path_list[i])
 
     def Get_VPA(self,im_path,Up,Down):
+        # Vanish_line = Down[3]
+        carhood = Down[2]
         drivable_path,drivable_mask_path,lane_path,detection_path = self.parse_path_ver2(im_path,type=self.data_type)
         im_dri_cm = cv2.imread(drivable_path)
         im = cv2.imread(im_path)
@@ -563,46 +575,45 @@ class BDD100K:
         L_X2,L_Y2 = Down[0],Down[2]
 
         p1,p2 = ( L_X1,L_Y1 ), (L_X2,L_Y2)
-        print(f"(L_X1,L_Y1) = ({L_X1},{L_Y1})")
-        print(f"(L_X2,L_Y2) = ({L_X2},{L_Y2})")
+        # print(f"(L_X1,L_Y1) = ({L_X1},{L_Y1})")
+        # print(f"(L_X2,L_Y2) = ({L_X2},{L_Y2})")
         R_X1,R_Y1 = Up[1],Up[2]
         R_X2,R_Y2 = Down[1],Down[2]
 
         p3,p4 = (R_X1,R_Y1),(R_X2,R_Y2)
-        print(f"(R_X1,R_Y1) = ({R_X1},{R_Y1})")
-        print(f"(R_X2,R_Y2) = ({R_X2},{R_Y2})")
+        # print(f"(R_X1,R_Y1) = ({R_X1},{R_Y1})")
+        # print(f"(R_X2,R_Y2) = ({R_X2},{R_Y2})")
         VP = self.Get_VP(p1,p2,p3,p4,im)
 
         VP_X,VP_Y = VP[0],VP[1]
-        Left_X = VP_X - 100 if VP_X -100>0 else 0
-        Right_X = VP_X + 100 if VP_X + 100 < w-1 else w-1
+        range = 100
+        if VP_X is not None:
+            Left_X = VP_X - range if VP_X -range>0 else 0
+            Right_X = VP_X + range if VP_X + range < w-1 else w-1
+        
+        B_W = abs(int((R_X1 - L_X1)/2.0))
+        #print(f"B_W:{B_W}")
+        Vehicle_X,Vehicle_Y,Final_W,state = self.Get_Vehicle_In_Middle_Image(detection_path,im,Left_X,Right_X,L_X2,R_X2,Th=200)
+        if VP_X is not None:
+            if VP_X<int(w/2.0)-350: # why no use....???
+                VP_X = None
+                VP_Y = None
+            elif Vehicle_X is not None:
+                if state==1:
+                    range = int(Final_W/2.0) + int(Final_W/4.0)
+                elif state==2:
+                    range = int(Final_W/2.0) + int(Final_W/4.0)
+                Left_X = Vehicle_X - range if Vehicle_X -range>0 else 0
+                Right_X = Vehicle_X + range if Vehicle_X + range < w-1 else w-1
+                VP_X = Vehicle_X
+                VP_Y = Vehicle_Y
+                Search_line_H = Vehicle_Y
+        
+            else:
+                Left_X = L_X1 if L_X1>0 else 0
+                Right_X = R_X1 if R_X1 < w-1 else w-1
 
-        Vehicle_X,Vehicle_Y,state = self.Get_Vehicle_In_Middle_Image(detection_path,im,Left_X,Right_X)
-        if Vehicle_X is not None:
-            if state==1:
-                range = 100
-            elif state==2:
-                range = 200
-            Left_X = Vehicle_X - range if Vehicle_X -range>0 else 0
-            Right_X = Vehicle_X + range if Vehicle_X + range < w-1 else w-1
-            VP_X = Vehicle_X
-            VP_Y = Vehicle_Y
-            Search_line_H = Vehicle_Y
-        elif VP_X<int(w/2.0)-350: # why no use....???
-            VP_X = None
-            VP_Y = None
-            # if state==1:
-            #     range = 100
-            # elif state==2:
-            #     range = 200
-            # Left_X = Vehicle_X - range if Vehicle_X -range>0 else 0
-            # Right_X = Vehicle_X + range if Vehicle_X + range < w-1 else w-1
-            # Search_line_H = Vehicle_Y
-        else:
-            Left_X = VP_X - 100 if VP_X -100>0 else 0
-            Right_X = VP_X + 100 if VP_X + 100 < w-1 else w-1
-
-            Search_line_H = VP_Y
+                Search_line_H = VP_Y
         
         
 
@@ -669,14 +680,16 @@ class BDD100K:
                 cv2.line(im, start_point, end_point, color, thickness)
 
                 # DCA Bounding Box
-                cv2.rectangle(im_dri_cm, (Left_X, 0), (Right_X, h-1), (0,255,0) , 3, cv2.LINE_AA)
-                cv2.rectangle(im, (Left_X, 0), (Right_X, h-1), (0,255,0) , 3, cv2.LINE_AA)
+                cv2.rectangle(im_dri_cm, (Left_X, 0), (Right_X, carhood), (0,255,0) , 3, cv2.LINE_AA)
+                cv2.rectangle(im, (Left_X, 0), (Right_X, carhood), (0,255,0) , 3, cv2.LINE_AA)
                 cv2.imshow("drivable image",im_dri_cm)
                 cv2.imshow("image",im)
                 cv2.waitKey()
 
-
-        return VP_X,VP_Y
+        Final_Y = int(carhood / 2.0)
+        Final_W = range*2
+        Final_H = carhood
+        return VP_X,Final_Y,Final_W,Final_H
 
     def Get_VP(self,p1,p2,p3,p4,cv_im):
         '''
@@ -693,22 +706,26 @@ class BDD100K:
         output : 
                 Vanish point : (VL_X,VL_Y)
         '''
-        # Get left line  y = L_a * x + L_b
-        if p1[0]-p2[0] != 0:
-            L_a = float((p1[1]-p2[1])/(p1[0]-p2[0]))
-            L_b = p1[1] - (L_a * p1[0])
+        if isinstance(p1[0],int) and isinstance(p2[0],int):
+            # Get left line  y = L_a * x + L_b
+            if p1[0]-p2[0] != 0:
+                L_a = float((p1[1]-p2[1])/(p1[0]-p2[0]))
+                L_b = p1[1] - (L_a * p1[0])
+            else:
+                L_a = float((p1[1]-p2[1])/(1.0))
+                L_b = p1[1] - (L_a * p1[0])
         else:
-            L_a = float((p1[1]-p2[1])/(1.0))
-            L_b = p1[1] - (L_a * p1[0])
-
-        # Get right line y = R_a * x + R_b
-        if p3[0]-p4[0]!=0:
-            R_a = float((p3[1]-p4[1])/(p3[0]-p4[0]))
-            R_b = p3[1] - (R_a * p3[0])
+            return (None,None)
+        if isinstance(p3[0],int) and isinstance(p4[0],int):
+            # Get right line y = R_a * x + R_b
+            if p3[0]-p4[0]!=0:
+                R_a = float((p3[1]-p4[1])/(p3[0]-p4[0]))
+                R_b = p3[1] - (R_a * p3[0])
+            else:
+                R_a = float((p3[1]-p4[1])/(1.0))
+                R_b = p3[1] - (R_a * p3[0])
         else:
-            R_a = float((p3[1]-p4[1])/(1.0))
-            R_b = p3[1] - (R_a * p3[0])
-
+            return (None,None)
         # Get the Vanish Point
         if (L_a - R_a) != 0:
             VP_X = int(float((R_b - L_b)/(L_a - R_a)))
@@ -720,7 +737,7 @@ class BDD100K:
         return (VP_X,VP_Y)
         return NotImplemented
 
-    def Get_Vehicle_In_Middle_Image(self,detection_path,im,Left_X,Right_X):
+    def Get_Vehicle_In_Middle_Image(self,detection_path,im,Left_X,Right_X,L_X2,R_X2,Th=200):
         im_h,im_w = im.shape[0],im.shape[1]
         middle_x = int(im_w/2.0)
         middle_y = int(im_h/2.0)
@@ -729,6 +746,10 @@ class BDD100K:
         Final_Vehicle_Y = None
         state = None
         Vehicle_Size = 80*80
+        Final_W = None
+
+        BB_middle_X = int((Left_X + Right_X)/2)
+
         with open(detection_path,'r') as f:
             lines = f.readlines()
             for line in lines:
@@ -737,25 +758,37 @@ class BDD100K:
                 y = int(float(line.split(" ")[2])*im_h)
                 w = int(float(line.split(" ")[3])*im_w)
                 h = int(float(line.split(" ")[4])*im_h)
-                if w*h >Vehicle_Size and x>Left_X and x<Right_X and la==2:
+                x1 = x - int(w/2.0)
+                y1 = y - int(h/2.0)
+                x2 = x + int(w/2.0)
+                y2 = y + int(h/2.0)
+                if w*h > Th*Th and abs(x-middle_x)<200 and la==2: # w*h > 100*100 and x>Left_X and x<Right_X and la==2:
+                    Final_Vehicle_X = x
+                    Final_Vehicle_Y = y
+                    Final_W = Th
+                    print("Vehicle state 3")
+                    state = 2
+                elif w*h >Vehicle_Size and x>Left_X and x<Right_X and la==2 and x>=L_X2 and x<=R_X2: #w*h >Vehicle_Size and x>Left_X and x<Right_X and la==2:
                     Final_Vehicle_X = x
                     Final_Vehicle_Y = y
                     Vehicle_Size = w*h
                     state = 1
+                    Final_W = w
                     print("Vehicle state 1")
-                elif w*h > 250*250 and abs(x-middle_x)<200 and la==2: # w*h > 100*100 and x>Left_X and x<Right_X and la==2:
+                elif w*h >Vehicle_Size and abs(x-middle_x)<200 and (BB_middle_X<im_w/5.0 or BB_middle_X>im_w*4/5) and la==2:
                     Final_Vehicle_X = x
                     Final_Vehicle_Y = y
-            
-                    print("Vehicle state 2")
-                    state = 2
+                    state = 1
+                    Vehicle_Size = w*h
+                    Final_W = w
+               
                 # elif w*h > Vehicle_Size and abs(x-middle_x)<200 and abs(y-middle_y) and la==2: # w*h > 100*100 and x>Left_X and x<Right_X and la==2:
                 #     Final_Vehicle_X = x
                 #     Final_Vehicle_Y = y
                 #     Vehicle_Size = w*h
                 #     print("Vehicle state 3")
                 #     state = 3
-        return Final_Vehicle_X,Final_Vehicle_Y, state
+        return Final_Vehicle_X,Final_Vehicle_Y,Final_W, state
 
     def Add_DCA_Yolo_Txt_Label(self,xywh,detection_path,h,w,im_path):
         success = 0
@@ -788,10 +821,12 @@ class BDD100K:
             save_label_path = os.path.join(self.save_txtdir,label_txt_file)
             
             # Copy the original label.txt into the save_label_path
-            if not os.path.exists(label_txt_file):
+            if not os.path.exists(save_label_path):
                 shutil.copy(detection_path,save_label_path)
             else:
                 print(f"File exists ,PASS! : {save_label_path}")
+                return success
+            
 
             if self.save_img:
                 shutil.copy(im_path,self.save_txtdir)
@@ -945,7 +980,7 @@ class BDD100K:
         if return_type == 1:
             return (Middle_X,Middle_Y,DCA_W,DCA_H),h,w
         elif return_type == 2:
-            return (Left_X,Right_X,Search_line_H)
+            return (Left_X,Right_X,Search_line_H,min_final_2)
     
 
     def Get_VPA_XYWH(self,im_path,return_type=1):
@@ -1045,8 +1080,8 @@ class BDD100K:
                     and abs(i-Top_Y)<50 \
                     and abs(i-Top_Y)>20:
                  
-                    print(f"Top_Y:{Top_Y}")
-                    print(f"i:{i}, abs(i-Top_Y):{abs(i-Top_Y)}")
+                    # print(f"Top_Y:{Top_Y}")
+                    # print(f"i:{i}, abs(i-Top_Y):{abs(i-Top_Y)}")
                     
                     main_lane_width = tmp_main_lane_width
                     Final_Left_X = Left_tmp_X
@@ -1336,13 +1371,13 @@ def get_args():
 
 
     parser.add_argument('-savetxtdir','--save-txtdir',help='save txt directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Val_VPA_label_Txt_2023-12-18-Ver4")
+                        default="/home/ali/Projects/datasets/BDD100K_Val_VPA_label_Txt_2023-12-20-Ver3")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
     parser.add_argument('-dcalabel','--dca-label',type=int,help='DCA label',default=14)
     parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
 
     parser.add_argument('-datatype','--data-type',help='data type',default="val")
-    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=500)
+    parser.add_argument('-datanum','--data-num',type=int,help='number of images to crop',default=10000)
 
 
 
