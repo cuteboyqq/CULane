@@ -310,7 +310,6 @@ class BDD100K:
             into label.txt of yolo format
         input:
             self.im_dir : the image directory
-            self.dataset_dir : the dataset directory
             self.save_dir : save crop image directory
             
         output:
@@ -382,6 +381,7 @@ class BDD100K:
                  + str(h)
         with open(save_txt_path,'a') as f:
             # Add VLA(Vanish Line Area Bounding Box) l x y w h
+            f.write("\n")
             f.write(lxywh)
         
         success = 1
@@ -1365,13 +1365,13 @@ def get_args():
     parser.add_argument('-imdir','--im-dir',help='image directory',\
                         default="/home/ali/Projects/datasets/bdd100k_data_0.9/images/100k/val")
     parser.add_argument('-savedir','--save-dir',help='save image directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Val_VLA_label_Txt_h100_2023-11-24")
+                        default="/home/ali/Projects/datasets/BDD100K_Val_VLA_DCA_VPA_label_Txt_h80_2023-11-24")
     parser.add_argument('-datadir','--data-dir',help='dataset directory',\
                         default="/home/ali/Projects/datasets/bdd100k_data_0.9")
 
 
     parser.add_argument('-savetxtdir','--save-txtdir',help='save txt directory',\
-                        default="/home/ali/Projects/datasets/BDD100K_Val_VPA_label_Txt_2023-12-20-Ver3")
+                        default="/home/ali/Projects/datasets/BDD100K_Val_VLA_DCA_VPA_label_Txt_2023-12-20-Ver4")
     parser.add_argument('-vlalabel','--vla-label',type=int,help='VLA label',default=12)
     parser.add_argument('-dcalabel','--dca-label',type=int,help='DCA label',default=14)
     parser.add_argument('-saveimg','--save-img',type=bool,help='save images',default=False)
@@ -1381,7 +1381,7 @@ def get_args():
 
 
 
-    parser.add_argument('-showim','--show-im',type=bool,help='show images',default=True)
+    parser.add_argument('-showim','--show-im',type=bool,help='show images',default=False)
     parser.add_argument('-showimcrop','--show-imcrop',type=bool,help='show crop images',default=True)
     parser.add_argument('-showvanishline','--show-vanishline',type=bool,help='show vanish line in image',default=False)
     parser.add_argument('-saveimcrop','--save-imcrop',type=bool,help='save  crop images',default=True)
@@ -1391,7 +1391,7 @@ def get_args():
     parser.add_argument('-shiftpixel','--shift-pixels',type=int,help='number of multiple crop images shift pixels',default=2)
 
     parser.add_argument('-splitnum','--split-num',type=int,help='split number',default=10)
-    parser.add_argument('-splitheight','--split-height',type=int,help='split image height',default=40)
+    parser.add_argument('-splitheight','--split-height',type=int,help='split image height',default=80)
     parser.add_argument('-dataset','--dataset',help='dataset directory',default="/home/ali/Projects/datasets/CULane/driver_161_90frame_crop_2cls/train")
     return parser.parse_args()
 
@@ -1400,9 +1400,9 @@ if __name__=="__main__":
     args=get_args()
     bk = BDD100K(args)
     #bk.Get_Vanish_Area()
-    # bk.Add_Vanish_Line_Area_Yolo_Txt_Labels()
+    bk.Add_Vanish_Line_Area_Yolo_Txt_Labels()
     # bk.Get_DCA_Yolo_Txt_Labels()
-    bk.Get_DCA_Yolo_Txt_Labels(version=3)
+    #bk.Get_DCA_Yolo_Txt_Labels(version=3)
 
 
 
